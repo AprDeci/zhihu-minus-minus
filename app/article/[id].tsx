@@ -123,7 +123,8 @@ export default function ArticleDetail() {
   const data = isDaily ? dailyData : zhihuData;
   const isError = isDaily ? dailyError : zhihuError;
   const refetchContent = isDaily ? refetchDaily : refetchZhihu;
-  const authorAvatarUrl = !isDaily ? data?.author?.avatar_url : undefined;
+  const author = !isDaily ? zhihuData?.author : undefined;
+  const authorAvatarUrl = author?.avatar_url;
   const readingProgress = useReadingProgress({
     contentKey: `${isDaily ? 'daily' : 'article'}:${String(id ?? '')}`,
     enabled: Boolean(id),
@@ -186,12 +187,13 @@ export default function ArticleDetail() {
   const followMutation = useOptimisticToggle<ZhihuArticle>({
     queryKey: ['zhihu-article', id],
     mutationFn: async () => {
-      if (data?.author?.is_following) {
-        return unfollowMember(data.author.url_token || data.author.id);
+      if (!author) throw new Error('文章尚未加载');
+      if (author.is_following) {
+        return unfollowMember(author.url_token || author.id);
       }
-      return followMember(data.author.url_token || data.author.id);
+      return followMember(author.url_token || author.id);
     },
-    isActive: data?.author?.is_following,
+    isActive: author?.is_following,
     onUpdateCache: (old) => ({
       ...old,
       author: old.author
@@ -231,7 +233,7 @@ export default function ArticleDetail() {
   });
 
   const goToProfile = () => {
-    const token = data?.author?.url_token || data?.author?.id;
+    const token = author?.url_token || author?.id;
     if (token) router.push(`/user/${token}`);
   };
 
@@ -384,7 +386,7 @@ export default function ArticleDetail() {
         {isDaily ? (
           <View className="w-full h-[300px] relative">
             <Image
-              source={getCachedImageSource(data.image)}
+              source={getCachedImageSource(dailyData?.image)}
               className="w-full h-full"
             />
             <View
@@ -397,12 +399,12 @@ export default function ArticleDetail() {
               >
                 {data.title}
               </Text>
-              {data.image_source && (
+              {dailyData?.image_source && (
                 <Text
                   className="text-right mt-2 text-[10px]"
                   style={{ color: 'rgba(255,255,255,0.7)' }}
                 >
-                  {data.image_source}
+                  {dailyData?.image_source}
                 </Text>
               )}
             </View>
@@ -422,22 +424,20 @@ export default function ArticleDetail() {
                   className="w-11 h-11 rounded-full"
                 />
                 <View className="ml-3 flex-1 bg-transparent">
-                  <Text className="text-base font-bold">
-                    {data.author?.name}
-                  </Text>
-                  {data.author?.headline ? (
+                  <Text className="text-base font-bold">{author?.name}</Text>
+                  {author?.headline ? (
                     <Text
                       type="secondary"
                       className="text-[13px] text-tertiary dark:text-tertiary-dark mt-0.5"
                       numberOfLines={1}
                     >
-                      {data.author.headline}
+                      {author.headline}
                     </Text>
                   ) : null}
                 </View>
               </BouncyButton>
               <FollowButton
-                following={Boolean(data.author?.is_following)}
+                following={Boolean(author?.is_following)}
                 loading={followMutation.isPending}
                 onPress={() => followMutation.mutate()}
               />
@@ -451,7 +451,7 @@ export default function ArticleDetail() {
             <AnswerEndorsements endorsements={zhihuData?.endorsements} />
           )}
           <ZhihuContent
-            content={isDaily ? data.body : data.content}
+            content={isDaily ? dailyData?.body : zhihuData?.content}
             objectId={id as string}
             type="article"
             variant={isDaily ? 'daily' : 'default'}
@@ -499,13 +499,13 @@ export default function ArticleDetail() {
         )}
 
         {/* Publish time and copyright notice for standard articles */}
-        {!isDaily && data.created && (
+        {!isDaily && zhihuData?.created && (
           <View className="px-5">
             <Text
               type="secondary"
               className="text-[#bbb] text-[13px] mt-[30px] italic pb-5"
             >
-              发布于 {formatDate(data.created)}
+              发布于 {formatDate(zhihuData.created)}
             </Text>
           </View>
         )}
@@ -535,8 +535,8 @@ export default function ArticleDetail() {
           leading={
             <SegmentedVoteCapsule
               id={id as string}
-              count={data.voteup_count ?? 0}
-              voted={data.relationship?.voting ?? 0}
+              count={zhihuData?.voteup_count ?? 0}
+              voted={zhihuData?.relationship?.voting ?? 0}
               type="articles"
               allowCountShrink
             />
@@ -561,12 +561,12 @@ export default function ArticleDetail() {
                   size={20}
                   colorType="secondary"
                 />
-                {data.comment_count > 0 && (
+                {(zhihuData?.comment_count ?? 0) > 0 && (
                   <Text
                     type="secondary"
                     className="ml-1 text-[13px] font-semibold"
                   >
-                    {data.comment_count}
+                    {zhihuData?.comment_count}
                   </Text>
                 )}
               </ContentActionButton>
@@ -588,8 +588,8 @@ export default function ArticleDetail() {
             ? {
                 id: id as string,
                 title: data.title,
-                author: data.author?.name,
-                authorHeadline: data.author?.headline,
+                author: author?.name,
+                authorHeadline: author?.headline,
                 isCollected: isDaily ? undefined : activeCollected,
                 url: isDaily
                   ? typeof dailyData?.share_url === 'string' &&

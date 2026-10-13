@@ -119,6 +119,12 @@ npm run analyze:rich-content:inbox
 
 `npm run lint` 不修改文件；需要自动修复时使用 `npm run lint:fix` 或 `npm run format`，然后逐项检查 diff。富文本专项的 fixture 投递、脱敏和 manifest 规则见 [`features/rich-content/README.md`](../features/rich-content/README.md)。
 
+### 内容导出验证
+
+导出模块位于 [`features/content-export/`](../features/content-export/README.md)，通过内容身份和账号会话重新获取正文，再从统一文档模型生成 Markdown、HTML、PDF 或分段长图。修改解析、资源准备、文件写入或账号隔离后，先运行 `npm test -- tests/contentExport --runInBand`，再运行 `npm run check`；涉及富文本转换时同时保留富文本专项测试和 fixture 分析。
+
+`expo-print` 与 `react-native-view-shot` 是原生依赖，新增或升级后分别运行 `npx expo prebuild --platform android --no-install` 和 `npx expo prebuild --platform ios --no-install`，重新编译 Development Build；生成目录不提交。导出当前仅支持 Android/iOS，Web 不能替代平台验收。真机需检查缺图重试、离线 HTML/公式、PDF 分页、长图边界与取消、SAF 保存、iOS“存储到文件”和多图相册权限；保存面板打开不能作为文件已保存的证据。完整测试矩阵和资源限制见模块 README。
+
 ### 主要界面回归场景
 
 主要界面的代码回归覆盖分页、搜索提交、评论上传与提交、历史选择、账号切换和公共菜单。修改这些流程后，除运行 `npm run check`，还应在 Android/iOS Development Build 上检查以下场景；自动化逻辑测试不能替代原生布局和手势验收：

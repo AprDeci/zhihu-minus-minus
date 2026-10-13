@@ -23,11 +23,16 @@ let mockAuthenticated = true;
 let mockCollectionPending = false;
 let mockAuthSessionVersion = 0;
 const mockToggleCollect = jest.fn();
+const mockPush = jest.fn();
 const mockRequestClose = jest.fn();
 let mockFinishClose: (() => void) | undefined;
 const mockCollectionStar = jest.fn(
   (_props: ComponentProps<typeof CollectionStarIcon>) => null,
 );
+
+jest.mock('expo-router', () => ({
+  router: { push: (...args: unknown[]) => mockPush(...args) },
+}));
 
 jest.mock('../api/client', () => ({
   hasAuthenticationCookie: (cookies: string | null) =>
@@ -207,6 +212,7 @@ test('exposes every content format and author action directly in one menu', asyn
   });
   for (const label of [
     '收藏',
+    '导出回答…',
     '系统分享链接',
     '分享标题与链接',
     '复制链接',
@@ -222,6 +228,32 @@ test('exposes every content format and author action directly in one menu', asyn
   await finishClose();
   expect(edit).toHaveBeenCalledTimes(1);
   expect(remove).not.toHaveBeenCalled();
+});
+
+test('opens an export bound to the selected content and session after closing', async () => {
+  const host = await setup();
+  await fireEvent.press(host.getByRole('button', { name: '导出回答…' }));
+  expect(mockPush).not.toHaveBeenCalled();
+  await finishClose();
+  expect(mockPush).toHaveBeenCalledWith({
+    pathname: '/export-content',
+    params: { type: 'answer', id: '42', session: '0' },
+  });
+});
+
+test('question export names its scope and video menus omit unsupported export', async () => {
+  const host = await setup({ type: 'question' });
+  expect(host.getByRole('button', { name: '导出问题描述…' })).toBeTruthy();
+  await host.update({ type: 'video' });
+  expect(host.queryByRole('button', { name: /导出/ })).toBeNull();
+});
+
+test('an account change cancels queued export navigation', async () => {
+  const host = await setup();
+  await fireEvent.press(host.getByRole('button', { name: '导出回答…' }));
+  mockAuthSessionVersion += 1;
+  await finishClose();
+  expect(mockPush).not.toHaveBeenCalled();
 });
 
 test.each([

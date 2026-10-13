@@ -74,8 +74,15 @@ export {
   getZhihuDocumentPreviewImages,
   walkZhihuDocument,
 } from './documentTraversal';
+export { richContentKatexStyles } from './exportResources';
 export type { RichContentVariant } from './imagePolicy';
-export { normalizeZhihuDocument } from './normalization/normalizeZhihuDocument';
+export {
+  normalizeZhihuContentSegments,
+  normalizeZhihuDocument,
+  type ZhihuDocumentNormalizationOptions,
+  type ZhihuDocumentNormalizationResult,
+} from './normalization/normalizeZhihuDocument';
+export { createRichContentMetrics } from './presentation';
 export {
   getNeighborAnswerIds,
   getRichContentQueryKey,

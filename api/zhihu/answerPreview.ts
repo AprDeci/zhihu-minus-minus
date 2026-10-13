@@ -28,6 +28,7 @@ export interface ZhihuPreviewAnswerMetadata {
     headline: string;
   };
   excerpt: string;
+  canCopy?: boolean;
   endorsements?: readonly unknown[];
   voteup_count: number;
   comment_count: number;
@@ -173,6 +174,7 @@ function normalizeAnswer(value: Record<string, unknown>): ZhihuPreviewAnswer {
       headline: text(author?.description),
     },
     excerpt: text(value.excerpt),
+    ...(typeof value.can_copy === 'boolean' && { canCopy: value.can_copy }),
     ...(Array.isArray(value.endorsements) && {
       endorsements: value.endorsements,
     }),

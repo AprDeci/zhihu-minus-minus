@@ -13,6 +13,13 @@ export interface DailyPage {
   stories?: DailyStory[];
 }
 
+export interface DailyDetail extends DailyStory {
+  body?: string;
+  image?: string;
+  image_source?: string;
+  share_url?: string;
+}
+
 const dailyClient = axios.create({
   timeout: 10000,
   headers: {
@@ -53,7 +60,15 @@ export const getDailyBefore = async (
   return res.data;
 };
 
-export const getDailyDetail = async (id: string | number) => {
-  const res = await dailyClient.get(`https://daily.zhihu.com/api/4/news/${id}`);
+export const getDailyDetail = async (
+  id: string | number,
+  options: ApiRequestOptions = {},
+): Promise<DailyDetail> => {
+  const res = await dailyClient.get<DailyDetail>(
+    `https://daily.zhihu.com/api/4/news/${id}`,
+    {
+      signal: options.signal,
+    },
+  );
   return res.data;
 };
