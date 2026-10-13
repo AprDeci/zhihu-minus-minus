@@ -177,7 +177,12 @@ function RootLayout() {
   // throw new Error('test')
   return (
     <GestureHandlerRootView
-      style={[{ flex: 1 }, vars(themeVariables(appThemeColors))]}
+      // Native fade transitions make both screens translucent. Keep an opaque,
+      // live-themed backdrop so they cannot reveal a stale native window color.
+      style={[
+        { flex: 1, backgroundColor: appThemeColors.background },
+        vars(themeVariables(appThemeColors)),
+      ]}
     >
       <QueryClientProvider client={queryClient}>
         <SafeAreaProvider>
