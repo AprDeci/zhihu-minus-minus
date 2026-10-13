@@ -429,15 +429,14 @@ function assertResult(result: ExportResult): void {
   }
 }
 
-async function readOutput(file: ExportFile): Promise<Uint8Array> {
+async function readOutputBase64(file: ExportFile): Promise<string> {
   const info = await FileSystem.getInfoAsync(file.uri);
   if (!info.exists || info.isDirectory || info.size > MAX_OUTPUT_BYTES) {
     throw new ExportIoError('storage');
   }
-  const value = await FileSystem.readAsStringAsync(file.uri, {
+  return FileSystem.readAsStringAsync(file.uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  return base64ToBytes(value);
 }
 
 /** Expo sharing supports one file. Multiple image pages are shared in one ZIP. */
@@ -456,7 +455,7 @@ export async function shareExport(
     let size = 0;
     for (const image of result.files) {
       assertExportActive(context);
-      const bytes = await readOutput(image);
+      const bytes = base64ToBytes(await readOutputBase64(image));
       size += bytes.byteLength;
       if (size > MAX_OUTPUT_BYTES) throw new ExportIoError('resource-limit');
       entries[image.name] = bytes;
@@ -496,15 +495,18 @@ export async function saveExport(
     let created: string | undefined;
     try {
       assertExportActive(context);
-      const bytes = await readOutput(file);
+      const encoded = await readOutputBase64(file);
       assertExportActive(context);
       created = await FileSystem.StorageAccessFramework.createFileAsync(
         permission.directoryUri,
-        file.name.replace(/\.[^.]+$/, ''),
+        // Providers may not know an extension for text/markdown; Expo passes the name through.
+        file.mimeType === 'text/markdown'
+          ? file.name
+          : file.name.replace(/\.[^.]+$/, ''),
         file.mimeType,
       );
       assertExportActive(context);
-      await FileSystem.writeAsStringAsync(created, bytesToBase64(bytes), {
+      await FileSystem.writeAsStringAsync(created, encoded, {
         encoding: FileSystem.EncodingType.Base64,
       });
       assertExportActive(context);

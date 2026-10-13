@@ -181,6 +181,22 @@ test('retains downloaded segments and labels a failed continuation as partial', 
   );
 });
 
+test.each([
+  'https://[invalid',
+  '/next-content-render?url_token=123&content_type=answer&version_id=1&offset=20',
+])('retains downloaded segments when continuation URL is invalid: %s', async (next) => {
+  mockAnswer({
+    ...detail,
+    content_need_truncated: true,
+    structured_content: body('已加载正文', next),
+  });
+  const source = await resolveExportSource(target, context);
+  expect(source.completeness).toBe('partial');
+  expect(sourceText(source)).toBe('已加载正文');
+  expect(source.warnings.join('')).toContain('续页');
+  expect(getNextContentRender).not.toHaveBeenCalled();
+});
+
 test('stops repeated pagination even when query parameters are reordered', async () => {
   const duplicate =
     'https://api.zhihu.com/next-content-render?offset=20&version_id=1&content_type=answer&url_token=123';
@@ -373,7 +389,13 @@ test('preserves pin segments and converts poll options into static content', asy
     id: '123',
     type: 'pin',
     created: 1700000000,
-    author: { name: '合成想法作者' },
+    comment_count: 0,
+    author: {
+      id: 'author',
+      name: '合成想法作者',
+      avatar_url: '',
+      type: 'people',
+    },
     content: [
       { type: 'text', content: '<p>想法正文</p>' },
       { type: 'image', url: 'https://example.invalid/pin.jpg' },

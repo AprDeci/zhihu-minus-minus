@@ -31,7 +31,7 @@ import { RICH_CONTENT_STALE_TIME, ZhihuContent } from '@/features/rich-content';
 import { useOptimisticToggle } from '@/hooks/useOptimisticToggle';
 import { useReadingProgress } from '@/hooks/useReadingProgress';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import type { ZhihuPin, ZhihuPinPoll } from '@/types/zhihu';
+import type { ZhihuPin } from '@/types/zhihu';
 import { formatDateTime } from '@/utils/date';
 import { shouldRetryQuery } from '@/utils/query';
 
@@ -82,7 +82,7 @@ export default function PinDetailScreen() {
     scrollRef: scrollViewRef,
   });
 
-  const poll = pin?.bottom_poll?.voting as ZhihuPinPoll | undefined;
+  const poll = pin?.bottom_poll?.voting;
   const pinVoteCount = getContentVoteCount('pins', pin) ?? 0;
   const pinVoteState = getContentVoteState('pins', pin) ?? 0;
   const enableBrowseHistory = useSettingsStore((s) => s.enableBrowseHistory);

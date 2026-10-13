@@ -88,6 +88,17 @@ interface LinkCardMetadata {
   [key: string]: unknown;
 }
 
+interface LinkCardContentSummary {
+  question?: { title?: string };
+  title?: string;
+  excerpt_title?: string;
+  cover_url?: string;
+  author?: { name?: string };
+  voteup_count?: number;
+  like_count?: number;
+  answer_count?: number;
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -177,7 +188,7 @@ export const LinkCard: React.FC<LinkCardProps> = React.memo(
       return null;
     }, [internalPath]);
 
-    const { data: fetchedData } = useQuery({
+    const { data: fetchedData } = useQuery<LinkCardContentSummary | null>({
       queryKey: ['linkcard', parsedId?.type, parsedId?.id],
       queryFn: async () => {
         if (!parsedId) return null;

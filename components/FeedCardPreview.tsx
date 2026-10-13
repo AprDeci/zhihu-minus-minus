@@ -18,12 +18,18 @@ import {
   ZhihuContent,
 } from '@/features/rich-content';
 import { useAuthStore } from '@/store/useAuthStore';
+import type { ZhihuContentSegment } from '@/types/zhihu';
 import { FeedExcerpt } from './FeedExcerpt';
 import { StableAvatar } from './StableAvatar';
 import { Text, useThemeColor, View } from './Themed';
 
 interface FeedCardPreviewProps {
   item: FeedItem;
+}
+
+interface PreviewDetail {
+  content?: string | ZhihuContentSegment[];
+  link_card_info?: Record<string, string>;
 }
 
 const PREVIEW_WIDTH = 320;
@@ -53,7 +59,7 @@ export function FeedCardPreview({ item }: FeedCardPreviewProps) {
         : item.type === 'pins'
           ? 'pin'
           : 'question';
-  const inlineContent = item.content as unknown;
+  const inlineContent = item.content;
   const hasInlineContent =
     hasInlineRichContent(inlineContent) &&
     !(
@@ -69,7 +75,7 @@ export function FeedCardPreview({ item }: FeedCardPreviewProps) {
         hasAuthenticationCookie(cookies),
       );
 
-  const { data: fullData, isLoading } = useQuery({
+  const { data: fullData, isLoading } = useQuery<PreviewDetail | null>({
     queryKey,
     queryFn: async () => {
       try {

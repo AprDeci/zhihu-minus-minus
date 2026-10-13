@@ -1,3 +1,4 @@
+import type { ZhihuPinDetail } from '@/types/zhihu';
 import client, { type ApiRequestOptions } from '../client';
 import type { UploadedImage } from './image';
 import {
@@ -40,12 +41,13 @@ interface PinContentData {
 export const getPin = async (
   id: string | number,
   options: ApiRequestOptions = {},
-) => {
+): Promise<ZhihuPinDetail> => {
   const include =
     'author,author.is_following,content,content_html,created,like_count,reaction_count,reaction,virtuals,comment_count,relationship.voting,topics';
-  const res = await client.get(`/pins/${id}?include=${include}`, {
-    signal: options.signal,
-  });
+  const res = await client.get<ZhihuPinDetail>(
+    `/pins/${id}?include=${include}`,
+    { signal: options.signal },
+  );
   return res.data;
 };
 

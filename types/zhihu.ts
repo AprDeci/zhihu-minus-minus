@@ -268,6 +268,11 @@ export interface ZhihuPin {
   };
 }
 
+export interface ZhihuPinDetail extends Omit<ZhihuPin, 'content'> {
+  content: ZhihuContentSegment[];
+  content_html?: string;
+}
+
 export interface ZhihuPinPoll {
   id: string;
   title?: string;

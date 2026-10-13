@@ -1,7 +1,8 @@
 const PRIVATE_HOST =
   /(?:^|\.)(?:localhost|local|internal|lan|home|localdomain)$/i;
 const PRIVATE_PATH =
-  /(?:^|\/)(?:api(?:[-_]v?\d+)?|v\d+|login|signin|sign-in|signup|oauth\d*|authorize|auth|session|logout)(?:\/|$)/i;
+  /(?:^|\/)(?:login|signin|sign-in|signup|oauth\d*|authorize|auth|session|logout)(?:\/|$)/i;
+const API_PATH = /(?:^|\/)(?:api(?:[-_]v?\d+)?|v\d+)(?:\/|$)/i;
 const TRACKING_QUERY =
   /^(?:utm_.+|spm|from|source|ref|referrer|fbclid|gclid)$/i;
 
@@ -21,6 +22,7 @@ function publicQuery(url: URL, images: boolean): string | undefined {
     const video = url.searchParams.get('v');
     if (!video || !/^[\w-]{11}$/.test(video)) return undefined;
     retained.set('v', video);
+    return retained.toString();
   } else if (
     /(?:^|\.)wikipedia\.org$/.test(host) &&
     url.pathname === '/w/index.php'
@@ -32,8 +34,13 @@ function publicQuery(url: URL, images: boolean): string | undefined {
     if (revision && /^\d{1,20}$/.test(revision))
       retained.set('oldid', revision);
     if (!retained.toString()) return undefined;
+    return retained.toString();
   }
-  return retained.toString();
+  // Unknown query parameters may identify a different page. Preserve the label
+  // without a link instead of silently changing its destination.
+  return [...url.searchParams.keys()].every((key) => TRACKING_QUERY.test(key))
+    ? ''
+    : undefined;
 }
 
 /** Exported files may outlive a session: never retain credentials or URL tokens. */
@@ -85,7 +92,17 @@ function publicUrl(value: string, images: boolean): string | undefined {
         if (next === decodedPath) break;
         decodedPath = next;
       }
-      if (PRIVATE_PATH.test(decodedPath) || hasInvalidCharacters(decodedPath))
+      // MDN's public documentation contains an API path segment. Limit this
+      // exception to article links; API endpoints and image fetches stay blocked.
+      const publicApiDocumentation =
+        !images &&
+        host === 'developer.mozilla.org' &&
+        /^\/[a-z]{2,3}(?:-[a-z0-9]+)*\/docs\//i.test(decodedPath);
+      if (
+        PRIVATE_PATH.test(decodedPath) ||
+        (API_PATH.test(decodedPath) && !publicApiDocumentation) ||
+        hasInvalidCharacters(decodedPath)
+      )
         return undefined;
       const query = publicQuery(url, images);
       if (query === undefined) return undefined;

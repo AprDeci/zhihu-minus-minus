@@ -85,6 +85,90 @@ afterEach(() => {
   Platform.OS = originalPlatform;
 });
 
+test.each([
+  { width: 0, height: 800 },
+  { width: 32, height: 800 },
+  { width: 32.9, height: 800 },
+  { width: 131.9, height: 800 },
+  { width: Number.NaN, height: 800 },
+  { width: Number.POSITIVE_INFINITY, height: 800 },
+  { width: Number.NEGATIVE_INFINITY, height: 800 },
+  { width: 400, height: 0 },
+  { width: 400, height: 200 },
+  { width: 400, height: 299.9 },
+  { width: 400, height: Number.NaN },
+  { width: 400, height: Number.POSITIVE_INFINITY },
+  { width: 400, height: Number.NEGATIVE_INFINITY },
+])('rejects unsupported window dimensions $width × $height before opening a capture surface', async ({
+  width,
+  height,
+}) => {
+  Dimensions.set({ window: { width, height, scale: 2, fontScale: 1 } });
+  const host = await render(<Host />);
+  await act(async () => {
+    await expect(startCapture('<html></html>', context())).rejects.toThrow(
+      '当前窗口尺寸不足以生成长图，请放大窗口或旋转屏幕后重试',
+    );
+  });
+  expect(host.queryByTestId('export-webview')).toBeNull();
+  expect(captureRef).not.toHaveBeenCalled();
+  expect(releaseCapture).not.toHaveBeenCalled();
+});
+
+test('an invalid window does not block retrying after its dimensions recover', async () => {
+  Dimensions.set({
+    window: { width: 400, height: 299, scale: 2, fontScale: 1 },
+  });
+  const host = await render(<Host />);
+  await act(async () => {
+    await expect(startCapture('<html></html>', context())).rejects.toThrow(
+      '当前窗口尺寸不足',
+    );
+    Dimensions.set({
+      window: { width: 400, height: 800, scale: 2, fontScale: 1 },
+    });
+  });
+  jest.mocked(captureRef).mockResolvedValue('file:///retry.png');
+  const resolved = jest.fn();
+  const rejected = jest.fn();
+  await act(async () => {
+    void startCapture('<html></html>', context()).then(resolved, rejected);
+    await expect(startCapture('<html></html>', context())).rejects.toThrow(
+      '已有长图任务正在运行',
+    );
+  });
+  await message({ type: 'measured', height: 450, boundaries: [] });
+  await layout(host, 450);
+  await waitFor(() => expect(mockInjectJavaScript).toHaveBeenCalled());
+  await message({ type: 'positioned', index: 0 });
+  expect(resolved).toHaveBeenCalledWith(['file:///retry.png']);
+  expect(rejected).not.toHaveBeenCalled();
+  expect(host.queryByTestId('export-webview')).toBeNull();
+});
+
+test('allows the minimum supported capture width and page height', async () => {
+  Dimensions.set({
+    window: { width: 132, height: 300, scale: 2, fontScale: 1 },
+  });
+  jest.mocked(captureRef).mockResolvedValue('file:///minimum.png');
+  const host = await render(<Host />);
+  const resolved = jest.fn();
+  const rejected = jest.fn();
+  await act(async () => {
+    void startCapture('<html></html>', context()).then(resolved, rejected);
+  });
+  await message({ type: 'measured', height: 100, boundaries: [] });
+  await layout(host, 100, 100);
+  await waitFor(() => expect(mockInjectJavaScript).toHaveBeenCalled());
+  await message({ type: 'positioned', index: 0 });
+  expect(captureRef).toHaveBeenCalledWith(
+    expect.anything(),
+    expect.objectContaining({ width: 200, height: 200 }),
+  );
+  expect(resolved).toHaveBeenCalledWith(['file:///minimum.png']);
+  expect(rejected).not.toHaveBeenCalled();
+});
+
 test('waits for native height and positioned acknowledgement, and ignores duplicate capture messages', async () => {
   const frame = deferred<string>();
   jest.mocked(captureRef).mockReturnValue(frame.promise);

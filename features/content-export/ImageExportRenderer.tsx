@@ -279,6 +279,19 @@ export function useImageExport() {
       if (pending.current)
         return Promise.reject(new ContentExportError('已有长图任务正在运行'));
       context.assertActive();
+      const width = Math.floor(Math.min(dimensions.width - 32, 540));
+      const height = Math.floor(Math.min(dimensions.height - 200, 1000));
+      if (
+        !Number.isFinite(dimensions.width) ||
+        !Number.isFinite(dimensions.height) ||
+        width < 100 ||
+        height < 100
+      )
+        return Promise.reject(
+          new ContentExportError(
+            '当前窗口尺寸不足以生成长图，请放大窗口或旋转屏幕后重试',
+          ),
+        );
       return new Promise((resolve, reject) => {
         const finish = () => {
           pending.current = null;
@@ -287,8 +300,8 @@ export function useImageExport() {
         const next: CaptureRequest = {
           html,
           context,
-          width: Math.floor(Math.min(dimensions.width - 32, 540)),
-          height: Math.floor(Math.min(dimensions.height - 200, 1000)),
+          width,
+          height,
           resolve: (uris) => {
             finish();
             resolve(uris);

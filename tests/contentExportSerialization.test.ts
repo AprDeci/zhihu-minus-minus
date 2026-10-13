@@ -107,7 +107,9 @@ test.each([
   'https://user:password@example.com/article',
   'https://api.zhihu.com/answers/42',
   'https://www.zhihu.com/api/v4/answers/42',
+  'https://www.zhihu.com/API/v4/answers/42',
   'https://www.zhihu.com/%2561pi/v4/answers/42',
+  'https://developer.mozilla.org/API/private',
   'https://www.zhihu.com/signin?next=private',
   'https://example.com/oauth/authorize',
   'https://localhost/article',
@@ -121,15 +123,15 @@ test.each([
   expect(getSafeExportImageUrl(url)).toBeUndefined();
 });
 
-test('unwraps public redirects and removes sensitive queries and fragments', () => {
+test('unwraps public redirects without preserving sensitive or ambiguous queries', () => {
   expect(
     getSafeExportUrl(
-      'https://link.zhihu.com/?target=https%3A%2F%2Fexample.com%2Fread%3Ftoken%3Dsynthetic%23session',
+      'https://link.zhihu.com/?target=https%3A%2F%2Fexample.com%2Fread%3Futm_source%3Dshare%23section',
     ),
   ).toBe('https://example.com/read');
-  expect(getSafeExportUrl('/question/7/answer/42?session=synthetic')).toBe(
-    'https://www.zhihu.com/question/7/answer/42',
-  );
+  expect(
+    getSafeExportUrl('/question/7/answer/42?session=synthetic'),
+  ).toBeUndefined();
   expect(
     getSafeExportImageUrl(
       'https://pic.zhimg.com/content.jpg?signature=synthetic#secret',
@@ -140,6 +142,41 @@ test('unwraps public redirects and removes sensitive queries and fragments', () 
   ).toBeUndefined();
   expect(
     getSafeExportImageUrl('http://pic.example.com/image.jpg'),
+  ).toBeUndefined();
+});
+
+test.each([
+  'https://mp.weixin.qq.com/s?__biz=synthetic&mid=42',
+  'https://item.taobao.com/item.htm?id=42&utm_source=share',
+  'https://example.com/article?p=2',
+  'https://example.com/read?token=synthetic',
+  'https://link.zhihu.com/?target=https%3A%2F%2Fexample.com%2Farticle%3Fp%3D2',
+])('keeps the label without linking to a changed query destination: %s', (url) => {
+  expect(getSafeExportUrl(url)).toBeUndefined();
+  const input = source([
+    {
+      id: 'link-paragraph',
+      type: 'paragraph',
+      children: [
+        { id: 'query-link', type: 'link', url, children: [text('目标页面')] },
+      ],
+    },
+  ]);
+  const html = main(serializeExportHtml(input, options));
+  const markdown = serializeExportMarkdown(input, options);
+  expect(html).toContain('目标页面');
+  expect(markdown).toContain('目标页面');
+  expect(html).not.toMatch(/<a[^>]*>目标页面<\/a>/);
+  expect(markdown).not.toContain('[目标页面](');
+});
+
+test('keeps known public API documentation without permitting API or auth resources', () => {
+  const url = 'https://developer.mozilla.org/en-US/docs/Web/API/fetch';
+  expect(getSafeExportUrl(url)).toBe(url);
+  expect(getSafeExportUrl(`${url}?utm_source=share#syntax`)).toBe(url);
+  expect(getSafeExportImageUrl(url)).toBeUndefined();
+  expect(
+    getSafeExportUrl('https://developer.mozilla.org/en-US/docs/auth/session'),
   ).toBeUndefined();
 });
 

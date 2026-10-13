@@ -509,20 +509,105 @@ test('Android SAF cancellation creates no file', async () => {
   ).not.toHaveBeenCalled();
 });
 
-test('Android SAF creates a file using its MIME type and extension-free name', async () => {
+test.each([
+  ['内容.md', 'text/markdown', '内容.md'],
+  ['内容.html', 'text/html', '内容'],
+  ['内容.pdf', 'application/pdf', '内容'],
+  ['内容.png', 'image/png', '内容'],
+  ['内容.zip', 'application/zip', '内容'],
+])('Android SAF preserves the required filename for %s', async (name, mimeType, providerName) => {
   jest.replaceProperty(Platform, 'OS', 'android');
-  await expect(saveExport(result(), context())).resolves.toBe(true);
+  const output = result([name]);
+  await expect(
+    saveExport(
+      { ...output, files: [{ ...output.files[0], mimeType }] },
+      context(),
+    ),
+  ).resolves.toBe(true);
   expect(
     FileSystem.StorageAccessFramework.createFileAsync,
   ).toHaveBeenCalledWith(
     'content://synthetic/directory',
-    '内容',
-    'text/markdown',
+    providerName,
+    mimeType,
   );
   expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(
     'content://synthetic/file',
     'aW1hZ2U=',
     { encoding: 'base64' },
+  );
+});
+
+test('Android SAF forwards native Base64 data without decoding or re-encoding it in JavaScript', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  const decode = jest.spyOn(globalThis, 'atob');
+  const encode = jest.spyOn(globalThis, 'btoa');
+  await expect(saveExport(result(), context())).resolves.toBe(true);
+  expect(FileSystem.readAsStringAsync).toHaveBeenCalledWith(
+    result().files[0].uri,
+    { encoding: 'base64' },
+  );
+  expect(FileSystem.writeAsStringAsync).toHaveBeenCalledWith(
+    'content://synthetic/file',
+    'aW1hZ2U=',
+    { encoding: 'base64' },
+  );
+  expect(decode).not.toHaveBeenCalled();
+  expect(encode).not.toHaveBeenCalled();
+});
+
+test.each([
+  { exists: false, isDirectory: false, size: 0 },
+  { exists: true, isDirectory: true, size: 0 },
+  { exists: true, isDirectory: false, size: 64 * 1024 * 1024 + 1 },
+] as const)('Android SAF refuses unreadable or oversized output: %j', async (info) => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  const uri = result().files[0].uri;
+  jest
+    .mocked(FileSystem.getInfoAsync)
+    .mockResolvedValueOnce(
+      info.exists
+        ? { ...info, uri, modificationTime: 0 }
+        : { exists: false, uri, isDirectory: false },
+    );
+  await expect(saveExport(result(), context())).rejects.toMatchObject({
+    code: 'storage',
+  });
+  expect(FileSystem.readAsStringAsync).not.toHaveBeenCalled();
+  expect(
+    FileSystem.StorageAccessFramework.createFileAsync,
+  ).not.toHaveBeenCalled();
+});
+
+test('Android SAF creates no destination when cancelled during the native file read', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  const controller = new AbortController();
+  jest.mocked(FileSystem.readAsStringAsync).mockImplementationOnce(async () => {
+    controller.abort();
+    return 'aW1hZ2U=';
+  });
+  await expect(saveExport(result(), context(controller))).rejects.toMatchObject(
+    {
+      code: 'cancelled',
+    },
+  );
+  expect(
+    FileSystem.StorageAccessFramework.createFileAsync,
+  ).not.toHaveBeenCalled();
+  expect(FileSystem.writeAsStringAsync).not.toHaveBeenCalled();
+});
+
+test('Android SAF removes its destination when a native write fails', async () => {
+  jest.replaceProperty(Platform, 'OS', 'android');
+  jest
+    .mocked(FileSystem.writeAsStringAsync)
+    .mockRejectedValueOnce(new Error('synthetic failure'));
+  await expect(saveExport(result(), context())).rejects.toMatchObject({
+    code: 'save',
+  });
+  expect(FileSystem.deleteAsync).toHaveBeenCalledWith(
+    'content://synthetic/file',
+    { idempotent: true },
   );
 });
 

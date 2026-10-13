@@ -7,6 +7,7 @@ import PinDetailScreen from '../app/pin/[id]';
 import QuestionDetail from '../app/question/[id]/index';
 import type { CollectionButton } from '../components/CollectionButton';
 import type { ActionSheetOption } from '../components/overlays/ActionSheet';
+import type { ZhihuContentProps } from '../features/rich-content';
 import { seedAnswerPreviewEntry } from '../utils/answerPreviewEntry';
 import { seedAnswerDetailFromList } from '../utils/contentCache';
 
@@ -60,6 +61,7 @@ const mockRelationshipNotice = jest.fn((_props: RelationshipNoticeProps) => {});
 const mockCollectionButton = jest.fn(
   (_props: React.ComponentProps<typeof CollectionButton>) => {},
 );
+const mockRichContent = jest.fn((_props: ZhihuContentProps) => {});
 const mockAnswer: AnswerDetail = {
   id: '84',
   question: { id: '7', title: '合成问题', type: 'question' },
@@ -311,7 +313,8 @@ jest.mock('../components/VoterListModal', () => ({
 jest.mock('../components/PinPollCard', () => ({ PinPollCard: () => null }));
 jest.mock('../features/rich-content', () => ({
   RICH_CONTENT_STALE_TIME: 60_000,
-  ZhihuContent: () => {
+  ZhihuContent: (props: ZhihuContentProps) => {
+    mockRichContent(props);
     const react = jest.requireActual<typeof import('react')>('react');
     const native =
       jest.requireActual<typeof import('react-native')>('react-native');
@@ -562,6 +565,23 @@ test('pin header and bottom more buttons open the same pin menu', async () => {
     expect(host.getByText('menu:pin:7')).toBeTruthy();
     await act(() => mockMenuProps.onClose());
   }
+});
+
+test('uses the selected daily body and leaves the cached article author out of sharing', async () => {
+  mockParams = { id: '7', source: 'daily' };
+  mockQueryData['daily-article'] = {
+    title: '合成日报',
+    body: '<p>选定日报正文</p>',
+  };
+  const host = await render(<ArticleDetail />);
+  expect(mockRichContent).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      content: '<p>选定日报正文</p>',
+      variant: 'daily',
+    }),
+  );
+  await pressButton(host.getByRole('button', { name: '更多操作' }));
+  expect(mockMenuProps.data?.author).toBeUndefined();
 });
 
 test('places the pin relationship notice before its body using the loaded pin identity and reaction count', async () => {
