@@ -21,6 +21,11 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
+import {
+  Gesture,
+  GestureDetector,
+  type NativeGesture,
+} from 'react-native-gesture-handler';
 import PagerView, {
   type PagerViewOnPageScrollEvent,
 } from 'react-native-pager-view';
@@ -203,6 +208,17 @@ export default function HomeScreen() {
   const topNavOffset = useSharedValue(0);
   const bottomNavOffset = useSharedValue(0);
   const pagerRef = useRef<PagerView>(null);
+  const pagerGesture = useMemo(() => Gesture.Native(), []);
+  const [recentMomentsInteracting, setRecentMomentsInteracting] =
+    useState(false);
+  const handleRecentMomentsInteractionChange = useCallback(
+    (interacting: boolean) => {
+      // Send the native command at touch-down, before horizontal dragging starts.
+      pagerRef.current?.setScrollEnabled(!interacting);
+      setRecentMomentsInteracting(interacting);
+    },
+    [],
+  );
   const pageScrollHandler = useEvent<PagerViewOnPageScrollEvent>(
     (event) => {
       'worklet';
@@ -431,69 +447,79 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       {/* 1. 内容 Pager 放在顶部导航之前 */}
-      <AnimatedPagerView
-        key={`pager-${currentTabs.join('-')}`} // 强制重新渲染
-        ref={pagerRef}
-        style={styles.pager}
-        initialPage={initialPageIndex}
-        onPageScroll={pageScrollHandler}
-        onPageSelected={(e) => {
-          showChrome();
-          setCurrentPage(e.nativeEvent.position);
-        }}
-      >
-        {currentTabs.map((tab, idx) => {
-          const isVisited = visitedPages.has(idx);
-          return (
-            <View key={tab} style={{ flex: 1, backgroundColor: 'transparent' }}>
-              {!isVisited ? null : tab === 'daily' ? (
-                <DailyList
-                  ref={(element) => {
-                    listRefs.current[idx] = element;
-                  }}
-                  insets={insets}
-                  chrome={{
-                    enabled: isFocused && currentPage === idx,
-                    topOffset: topNavOffset,
-                    bottomOffset: bottomNavOffset,
-                    topHideDistance: insets.top + TOP_NAV_HEIGHT,
-                    bottomHideDistance: insets.bottom + BOTTOM_NAV_HEIGHT,
-                    onScrolledChange: (scrolled) =>
-                      handleScrolledChange(idx, scrolled),
-                  }}
-                  onRefreshStateChange={(isRefreshing) =>
-                    handleRefreshStateChange(idx, isRefreshing)
-                  }
-                />
-              ) : tab === 'publish' ? (
-                <PublishScreen />
-              ) : tab === 'profile' ? (
-                <ProfileScreen isActive={isFocused && currentPage === idx} />
-              ) : (
-                <FeedList
-                  ref={(element) => {
-                    listRefs.current[idx] = element;
-                  }}
-                  tab={tab as FeedTabType}
-                  isActive={isFocused && currentPage === idx}
-                  insets={insets}
-                  guestCookieReady={guestCookieReady}
-                  topNavOffset={topNavOffset}
-                  bottomNavOffset={bottomNavOffset}
-                  topHideDistance={insets.top + TOP_NAV_HEIGHT}
-                  bottomHideDistance={insets.bottom + BOTTOM_NAV_HEIGHT}
-                  onScrolledChange={(scrolled) =>
-                    handleScrolledChange(idx, scrolled)
-                  }
-                  onRefreshStateChange={(isRefreshing) =>
-                    handleRefreshStateChange(idx, isRefreshing)
-                  }
-                />
-              )}
-            </View>
-          );
-        })}
-      </AnimatedPagerView>
+      <GestureDetector gesture={pagerGesture}>
+        <AnimatedPagerView
+          key={`pager-${currentTabs.join('-')}`} // 强制重新渲染
+          ref={pagerRef}
+          style={styles.pager}
+          initialPage={initialPageIndex}
+          scrollEnabled={!recentMomentsInteracting}
+          onPageScroll={pageScrollHandler}
+          onPageSelected={(e) => {
+            showChrome();
+            setCurrentPage(e.nativeEvent.position);
+          }}
+        >
+          {currentTabs.map((tab, idx) => {
+            const isVisited = visitedPages.has(idx);
+            return (
+              <View
+                key={tab}
+                style={{ flex: 1, backgroundColor: 'transparent' }}
+              >
+                {!isVisited ? null : tab === 'daily' ? (
+                  <DailyList
+                    ref={(element) => {
+                      listRefs.current[idx] = element;
+                    }}
+                    insets={insets}
+                    chrome={{
+                      enabled: isFocused && currentPage === idx,
+                      topOffset: topNavOffset,
+                      bottomOffset: bottomNavOffset,
+                      topHideDistance: insets.top + TOP_NAV_HEIGHT,
+                      bottomHideDistance: insets.bottom + BOTTOM_NAV_HEIGHT,
+                      onScrolledChange: (scrolled) =>
+                        handleScrolledChange(idx, scrolled),
+                    }}
+                    onRefreshStateChange={(isRefreshing) =>
+                      handleRefreshStateChange(idx, isRefreshing)
+                    }
+                  />
+                ) : tab === 'publish' ? (
+                  <PublishScreen />
+                ) : tab === 'profile' ? (
+                  <ProfileScreen isActive={isFocused && currentPage === idx} />
+                ) : (
+                  <FeedList
+                    ref={(element) => {
+                      listRefs.current[idx] = element;
+                    }}
+                    tab={tab as FeedTabType}
+                    isActive={isFocused && currentPage === idx}
+                    insets={insets}
+                    guestCookieReady={guestCookieReady}
+                    pagerGesture={pagerGesture}
+                    onRecentMomentsInteractionChange={
+                      handleRecentMomentsInteractionChange
+                    }
+                    topNavOffset={topNavOffset}
+                    bottomNavOffset={bottomNavOffset}
+                    topHideDistance={insets.top + TOP_NAV_HEIGHT}
+                    bottomHideDistance={insets.bottom + BOTTOM_NAV_HEIGHT}
+                    onScrolledChange={(scrolled) =>
+                      handleScrolledChange(idx, scrolled)
+                    }
+                    onRefreshStateChange={(isRefreshing) =>
+                      handleRefreshStateChange(idx, isRefreshing)
+                    }
+                  />
+                )}
+              </View>
+            );
+          })}
+        </AnimatedPagerView>
+      </GestureDetector>
 
       {/* 2. 顶部 Tab 导航 (Home 专属) */}
       <Animated.View
@@ -794,6 +820,8 @@ const FeedList = React.forwardRef<
     isActive: boolean;
     insets: EdgeInsets;
     guestCookieReady: boolean;
+    pagerGesture: NativeGesture;
+    onRecentMomentsInteractionChange?: (interacting: boolean) => void;
     topNavOffset: SharedValue<number>;
     bottomNavOffset: SharedValue<number>;
     topHideDistance: number;
@@ -808,6 +836,8 @@ const FeedList = React.forwardRef<
       isActive,
       insets,
       guestCookieReady,
+      pagerGesture,
+      onRecentMomentsInteractionChange,
       topNavOffset,
       bottomNavOffset,
       topHideDistance,
@@ -1342,7 +1372,13 @@ const FeedList = React.forwardRef<
             );
           }}
           ListHeaderComponent={
-            cookies && tab === 'following' ? <RecentMoments /> : null
+            cookies && tab === 'following' ? (
+              <RecentMoments
+                isActive={isActive}
+                parentGesture={pagerGesture}
+                onInteractionChange={onRecentMomentsInteractionChange}
+              />
+            ) : null
           }
           ListFooterComponent={
             isFetchingNextPage ? (
