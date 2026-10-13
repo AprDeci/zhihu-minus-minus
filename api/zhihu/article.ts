@@ -1,5 +1,5 @@
 import type { ZhihuArticle } from '@/types/zhihu';
-import apiClient from '../client';
+import apiClient, { type ApiRequestOptions } from '../client';
 import {
   createPublishingTraceId,
   type PublishedContentResult,
@@ -31,8 +31,10 @@ interface ArticleDraftPatch {
 
 export const getArticle = async (
   id: string | number,
+  options: ApiRequestOptions = {},
 ): Promise<ZhihuArticle> => {
   const res = await apiClient.get<ZhihuArticle>(`/articles/${id}`, {
+    signal: options.signal,
     params: {
       include:
         'author.is_following,endorsements,favlists_count,relationship.is_favorited,reaction',

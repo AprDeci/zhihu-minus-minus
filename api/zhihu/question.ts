@@ -1,6 +1,9 @@
 import { useAuthStore } from '@/store/useAuthStore';
 import type { ZhihuPaging, ZhihuQuestion } from '@/types/zhihu';
-import apiClient, { hasAuthenticationCookie } from '../client';
+import apiClient, {
+  type ApiRequestOptions,
+  hasAuthenticationCookie,
+} from '../client';
 import type {
   AnswerDetail,
   AnswerQuestion,
@@ -54,9 +57,11 @@ export const QUESTION_INCLUDE =
 export const getQuestion = async (
   id: string | number,
   include?: string,
+  options: ApiRequestOptions = {},
 ): Promise<ZhihuQuestionDetail> => {
   if (hasAuthenticationCookie(useAuthStore.getState().cookies)) {
     const res = await apiClient.get<ZhihuQuestionDetail>(`/questions/${id}`, {
+      signal: options.signal,
       params: { include: include || QUESTION_INCLUDE },
     });
     return res.data;
@@ -64,6 +69,7 @@ export const getQuestion = async (
 
   const url = buildZhihuAppQuestionUrl(id, include);
   const res = await apiClient.get<ZhihuQuestionDetail>(url, {
+    signal: options.signal,
     headers: getZhihuAppEndpointHeaders(url),
   });
   return res.data;

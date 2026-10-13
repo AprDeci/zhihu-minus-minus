@@ -1,8 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
+import { router } from 'expo-router';
 import { hasAuthenticationCookie } from '@/api/client';
 import { getAllContentCollectionStatus } from '@/api/zhihu/collection';
 import type { ActionSheetOption } from '@/components/overlays/ActionSheet';
 import { useThemeColor } from '@/components/Themed';
+import {
+  contentExportHref,
+  EXPORT_CONTENT_LABELS,
+  parseExportTarget,
+} from '@/features/content-export/entry';
 import { useCollectionAction } from '@/hooks/useCollectionAction';
 import { getAuthSessionVersion, useAuthStore } from '@/store/useAuthStore';
 import { useCollectionStore } from '@/store/useCollectionStore';
@@ -100,6 +106,18 @@ export function useContentActions({
     });
   }
   if (data) {
+    const exportTarget = parseExportTarget(type, id, actionSession);
+    if (exportTarget) {
+      actions.push({
+        key: 'export-content',
+        icon: 'download-outline',
+        label: `导出${EXPORT_CONTENT_LABELS[exportTarget.type]}…`,
+        onPress: () => {
+          if (actionSession !== getAuthSessionVersion()) return;
+          router.push(contentExportHref(exportTarget));
+        },
+      });
+    }
     actions.push(
       {
         key: 'system-share',

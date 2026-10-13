@@ -53,7 +53,15 @@ export const getDailyBefore = async (
   return res.data;
 };
 
-export const getDailyDetail = async (id: string | number) => {
-  const res = await dailyClient.get(`https://daily.zhihu.com/api/4/news/${id}`);
+export const getDailyDetail = async (
+  id: string | number,
+  options: ApiRequestOptions = {},
+) => {
+  const res = await dailyClient.get(
+    `https://daily.zhihu.com/api/4/news/${id}`,
+    {
+      signal: options.signal,
+    },
+  );
   return res.data;
 };

@@ -1660,10 +1660,6 @@ const styles = StyleSheet.create({
   },
   lightTranslucentShadow: {
     shadowColor: Colors.light.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.14,
-    shadowRadius: 12,
-    elevation: 6,
   },
   bottomBlur: { borderRadius: 32, overflow: 'hidden', height: 64 },
   bottomNavItems: {
