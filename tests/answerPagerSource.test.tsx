@@ -260,7 +260,8 @@ test('pages all non-profile origins within their question and isolates profile a
     {
       signal: expect.any(AbortSignal),
       params: {
-        include: 'data[*].id,question.id,endorsements',
+        include:
+          'data[*].id,question.id,endorsements;data[*].favlists_count,reaction,relationship.is_favorited',
         limit: 20,
         offset: 0,
         sort_by: 'voteups',

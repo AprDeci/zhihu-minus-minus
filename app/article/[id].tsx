@@ -10,9 +10,14 @@ import {
   type ScrollView as NativeScrollView,
   type NativeSyntheticEvent,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getArticle, getDailyDetail } from '@/api/zhihu';
+import {
+  getArticle,
+  getContentCollectionMetadata,
+  getDailyDetail,
+} from '@/api/zhihu';
 import { getAllContentCollectionStatus } from '@/api/zhihu/collection';
 import {
   followColumn,
@@ -23,6 +28,7 @@ import { recordReadHistory } from '@/api/zhihu/history';
 import { followMember, unfollowMember } from '@/api/zhihu/member';
 import { AnswerEndorsements } from '@/components/AnswerEndorsements';
 import { BouncyButton } from '@/components/BouncyButton';
+import { CollectionButton } from '@/components/CollectionButton';
 import {
   CONTENT_ACTION_BAR_HEIGHT,
   ContentActionBar,
@@ -52,6 +58,7 @@ import { getZhihuErrorStatus } from '@/utils/zhihuError';
 const ARTICLE_ACTION_BAR_OFFSET = 10;
 
 export default function ArticleDetail() {
+  const dimensions = useWindowDimensions();
   const colorScheme = useColorScheme();
   const primaryColor = useThemeColor({}, 'primary');
   const linkColor = useThemeColor({}, 'link');
@@ -149,7 +156,10 @@ export default function ArticleDetail() {
   const storeCollected = useCollectionStore(
     (state) => state.collectedStatusMap[String(id)],
   );
-  const activeCollected = storeCollected ?? statusCollected;
+  const activeCollected =
+    storeCollected ??
+    statusCollected ??
+    getContentCollectionMetadata(data).isCollected;
   const storeCollectedRef = useRef(storeCollected);
 
   useEffect(() => {
@@ -516,6 +526,7 @@ export default function ArticleDetail() {
       {!isDaily && (
         <ContentActionBar
           bottomInset={insets.bottom}
+          shrinkLeading
           bottomOffset={ARTICLE_ACTION_BAR_OFFSET}
           leading={
             <SegmentedVoteCapsule
@@ -523,10 +534,18 @@ export default function ArticleDetail() {
               count={data.voteup_count ?? 0}
               voted={data.relationship?.voting ?? 0}
               type="articles"
+              allowCountShrink
             />
           }
           trailing={
             <View className="flex-row items-center bg-transparent">
+              <CollectionButton
+                id={id as string}
+                type="article"
+                isCollected={activeCollected}
+                count={getContentCollectionMetadata(data).favlistsCount}
+                compact={dimensions.width / dimensions.fontScale < 360}
+              />
               <ContentActionButton
                 accessibilityRole="button"
                 accessibilityLabel="评论"

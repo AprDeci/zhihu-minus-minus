@@ -26,10 +26,6 @@ jest.mock(
   '@expo/vector-icons/Ionicons',
   () => jest.requireActual('react-native').View,
 );
-jest.mock(
-  '@expo/vector-icons/FontAwesome6',
-  () => jest.requireActual('react-native').View,
-);
 jest.mock('../components/BouncyButton', () => ({
   BouncyButton: jest.requireActual('react-native').Pressable,
 }));

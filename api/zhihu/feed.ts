@@ -202,6 +202,7 @@ export interface RawFeedReaction {
 
 export interface RawFeedRelationship {
   is_author?: boolean;
+  is_favorited?: boolean;
   is_nothelp?: boolean;
   is_thanked?: boolean;
   upvoted_followee_ids?: string[] | null;
@@ -317,6 +318,8 @@ export interface FeedItem {
   voteCount: number;
   commentCount: number;
   favlistsCount?: number;
+  /** Omitted when the server did not report the current user's collection state. */
+  isCollected?: boolean;
   voted: number;
   type: 'answers' | 'articles' | 'pins' | 'questions' | 'videos';
   /** Preserve Lens media IDs separately from zvideo content IDs. */

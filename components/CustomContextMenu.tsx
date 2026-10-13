@@ -1,4 +1,3 @@
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { BlurView } from 'expo-blur';
 import type { ComponentProps } from 'react';
@@ -19,6 +18,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { BouncyButton } from '@/components/BouncyButton';
+import { CollectionStarIcon } from '@/components/CollectionStarIcon';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { ImpactFeedbackStyle, impactAsync } from '@/utils/haptics';
@@ -46,7 +46,7 @@ export interface MenuOption {
   key: string;
   title: string;
   icon: string;
-  iconFamily?: 'ionicons' | 'font-awesome-6';
+  iconFamily?: 'ionicons' | 'collection-star';
   iconSolid?: boolean;
   isDestructive?: boolean;
   disabled?: boolean;
@@ -332,12 +332,11 @@ export function CustomContextMenu({
                   >
                     {option.title}
                   </Text>
-                  {option.iconFamily === 'font-awesome-6' ? (
-                    <FontAwesome6
-                      name={option.icon}
+                  {option.iconFamily === 'collection-star' ? (
+                    <CollectionStarIcon
                       size={18}
                       color={Colors[colorScheme].textSecondary}
-                      solid={option.iconSolid}
+                      filled={option.iconSolid === true}
                     />
                   ) : (
                     <Ionicons

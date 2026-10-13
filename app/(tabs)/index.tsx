@@ -42,6 +42,7 @@ import { WebView } from 'react-native-webview';
 import {
   FEED_URLS,
   type FeedItem,
+  getContentCollectionMetadata,
   getContentVoteCount,
   getContentVoteState,
   getFeed,
@@ -1466,8 +1467,7 @@ function parseFollowingData(item: RawFeedItem): FeedItem | null {
         : null),
     voteCount: getContentVoteCount(appType, target) ?? 0,
     commentCount: target.comment_count || 0,
-    favlistsCount:
-      target.favorite_count || target.reaction?.statistics?.favorites || 0,
+    ...getContentCollectionMetadata(target),
     voted: getContentVoteState(appType, target) ?? 0,
     type: appType,
     answerType: normalizeAnswerType(target),
@@ -1559,11 +1559,7 @@ function parseRecommendData(item: RawFeedItem): FeedItem | null {
         : null),
     voteCount: getContentVoteCount(appType, target) ?? 0,
     commentCount: target.comment_count || 0,
-    favlistsCount:
-      target.favlists_count ||
-      target.favorite_count ||
-      target.reaction?.statistics?.favorites ||
-      0,
+    ...getContentCollectionMetadata(target),
     voted: getContentVoteState(appType, target) ?? 0,
     type: appType,
     topics: target.topics?.map((topic) => ({

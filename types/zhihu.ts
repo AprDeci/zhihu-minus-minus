@@ -200,6 +200,7 @@ export interface ZhihuAnswer {
   created_time: number;
   updated_time: number;
   comment_count: number;
+  favlists_count?: number;
   voteup_count?: number;
   reaction_count?: number;
   reaction?: ZhihuReaction;
@@ -214,6 +215,7 @@ export interface ZhihuAnswer {
   relationship?: {
     voting?: number;
     is_thanked?: boolean;
+    is_favorited?: boolean;
   };
 }
 
@@ -226,13 +228,16 @@ export interface ZhihuArticle {
   created: number;
   updated: number;
   comment_count: number;
+  favlists_count?: number;
   voteup_count?: number;
+  reaction?: ZhihuReaction;
   author: ZhihuAuthor;
   type: 'article';
   url?: string;
   link_card_info?: Record<string, string>;
   relationship?: {
     voting?: number;
+    is_favorited?: boolean;
   };
 }
 
@@ -733,8 +738,14 @@ export interface ZhihuTopicFeedTarget {
   question?: { id?: string | number; title?: string };
   author?: ZhihuAuthor;
   comment_count?: number;
+  favlists_count?: number;
   voteup_count?: number;
-  relationship?: { voting?: number; is_author?: boolean };
+  reaction?: ZhihuReaction;
+  relationship?: {
+    voting?: number;
+    is_author?: boolean;
+    is_favorited?: boolean;
+  };
 }
 
 export type ZhihuTopicFeedItem = ZhihuTopicFeedTarget | ZhihuTopicFeedEnvelope;

@@ -252,6 +252,8 @@ const AnswerPreviewCard = React.memo(function AnswerPreviewCard({
           voted={item.relationship.voting}
           engagementType="answers"
           commentCount={item.comment_count}
+          isCollected={item.relationship.is_favorited}
+          collectionCount={item.favlists_count}
           showDownvote
           commentAccessibilityLabel="查看评论"
           onComments={() =>

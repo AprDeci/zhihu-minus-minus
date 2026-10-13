@@ -87,11 +87,11 @@ Web 适合检查路由和不依赖原生模块的页面，不代表 Android/iOS 
 
 ### 字体打包体积
 
-图标按家族路径导入，例如 `import Ionicons from '@expo/vector-icons/Ionicons'`，避免包根入口把其他家族的字体和 glyph map 一起带入 Metro 依赖图。当前使用 Ionicons 和 FontAwesome6；FontAwesome6 的默认入口仍包含 regular、solid、brands 三份字体，不能按界面实际使用的样式数量推断包内字体数。
+图标按家族路径导入，例如 `import Ionicons from '@expo/vector-icons/Ionicons'`，避免包根入口把其他家族的字体和 glyph map 一起带入 Metro 依赖图。当前仅使用 Ionicons 图标字体；收藏的空心和实心星形由 `CollectionStarIcon` 内联 SVG 绘制，卡片、悬浮操作栏和菜单共用，不再依赖 FontAwesome6 及其 regular、solid、brands 三份字体。
 
 Expo Router 的共享布局还会间接导入 `expo-symbols`。其 [补丁](../patches/expo-symbols+55.0.9.patch) 将 `SymbolView` 的 `useFonts` 导入收窄到同包子模块，保留原 hook 和默认 Regular 字体，避免无条件打入七种字重；业务显式引用其他字重时仍会正常打包。现有 `postinstall` 自动应用补丁，升级 `expo-symbols` 时需复核上游是否已修复并重新验证导出。
 
-可用 `npx expo export --platform android --dump-assetmap --output-dir /tmp/zhihu-android-export` 检查生产资源清单：当前应包含 Ionicons、FontAwesome6 的三份字体和 MaterialSymbols Regular。字体清单验证后仍需在真机检查菜单、收藏和导航图标；最终 APK 大小以同一构建环境的 Release 产物为准。
+可用 `npx expo export --platform android --dump-assetmap --output-dir /tmp/zhihu-android-export` 检查生产资源清单：当前应包含 Ionicons 和 MaterialSymbols Regular，不应包含 FontAwesome6 字体。字体清单验证后仍需在真机检查菜单、收藏和导航图标；最终 APK 大小以同一构建环境的 Release 产物为准。
 
 ## 验证命令
 
@@ -219,6 +219,8 @@ xcrun simctl openurl booted 'zhihu--:///dev/rich-content/prototype?caseId=attach
 - 最终说明中列出已运行的命令、未运行的真机/平台验证和剩余风险。
 
 ## 回答阅读方式与预览列表
+
+回答和文章的卡片底部、详情及预览悬浮栏在评论左侧提供 `CollectionButton`，问题页回答卡片与创作卡片保持相同顺序。按钮复用 `useCollectionAction`，以全局收藏状态覆盖服务端初始值，收藏后显示实心星标。列表通过 `getContentCollectionMetadata` 保留 Web/App 返回的收藏状态与数量，未知状态和数量不补成 false/0；数量使用服务端值、随刷新更新，不叠加会话累计 offset，避免重复计数；未知状态仅在点击时读取现有收藏状态查询，再执行收藏或取消，不随列表挂载批量请求。读取中及提交中禁用，读取失败可重试，卡片复用、卸载或账号切换后忽略旧读取结果；更多菜单保留收藏入口。预览浮栏在窄屏将收起按钮并入右侧操作组，赞同数字可单行省略；极窄屏省略浮栏收藏与评论的可见数量，完整数量保留在无障碍属性中。专项回归见 `collectionButton`、`feedCardActionRow`、`feedCardRecycling` 和详情/预览测试，真机需验证窄屏及大字体下收藏、评论和更多按钮均可点击。
 
 回答入口 `/answer/[id]` 按 `answerReadingMode` 选择详情或预览卡片列表，默认 `detail`；settings version 16 给旧设置补齐该值。`readingMode=detail` 用于主动切换到详情。问题页、收藏夹与点赞页先显示普通摘要卡片，不在列表中加载完整正文。长按 FeedCard 的临时预览菜单保持原有行为。
 

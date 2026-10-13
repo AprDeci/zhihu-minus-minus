@@ -137,3 +137,33 @@ test('normalizes question feed cards into renderable answer details', () => {
   assert.ok(normalized.paging);
   assert.equal(normalized.paging.need_force_login, true);
 });
+
+test('question feeds retain App collection metadata and leave omitted fields unknown', () => {
+  const target = {
+    id: 'answer-a',
+    author: {
+      id: 'author-a',
+      name: '合成作者',
+      avatar_url: '',
+      type: 'people',
+    },
+  };
+  const normalized = normalizeZhihuAppQuestionFeeds({
+    data: [
+      {
+        target: {
+          ...target,
+          reaction: {
+            relation: { faved: false },
+            statistics: { favorites: 0 },
+          },
+        },
+      },
+      { target: { ...target, id: 'answer-b' } },
+    ],
+  });
+  assert.equal(normalized.data[0].favlists_count, 0);
+  assert.equal(normalized.data[0].relationship?.is_favorited, false);
+  assert.equal(normalized.data[1].favlists_count, undefined);
+  assert.equal(normalized.data[1].relationship?.is_favorited, undefined);
+});

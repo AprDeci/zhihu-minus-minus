@@ -102,6 +102,7 @@ function areFeedCardPropsEqual(
     previousItem.voteCount === nextItem.voteCount &&
     previousItem.commentCount === nextItem.commentCount &&
     previousItem.favlistsCount === nextItem.favlistsCount &&
+    previousItem.isCollected === nextItem.isCollected &&
     previousItem.voted === nextItem.voted &&
     previousItem.answerType === nextItem.answerType &&
     previousItem.contentNeedTruncated === nextItem.contentNeedTruncated &&
@@ -252,7 +253,7 @@ const FeedCardComponent = ({ item, tab, answerContext }: FeedCardProps) => {
     author: item.author.name,
     authorHeadline: item.author.headline,
     questionId: item.questionId,
-    isCollected: storeCollected,
+    isCollected: storeCollected ?? item.isCollected,
   };
   const { actions: contentActions } = useContentActions({
     type: shareType,
@@ -488,6 +489,8 @@ const FeedCardComponent = ({ item, tab, answerContext }: FeedCardProps) => {
           voted={voted}
           engagementType={engagementType}
           commentCount={item.commentCount}
+          isCollected={storeCollected ?? item.isCollected}
+          collectionCount={item.favlistsCount}
           onVoteChange={(newVoted, newCount) => {
             setVoted(newVoted);
             setVoteCount(newCount);

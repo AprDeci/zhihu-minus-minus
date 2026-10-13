@@ -1,3 +1,4 @@
+import { getContentCollectionMetadata } from '@/api/zhihu/contentCollection';
 import type { FeedItem } from '@/api/zhihu/feed';
 import type {
   ZhihuListResponse,
@@ -120,11 +121,7 @@ export function toUserCreationFeedItem(
     voteCount: type === 'videos' ? 0 : (getContentVoteCount(type, target) ?? 0),
     commentCount:
       target.comment_count ?? target.reaction?.statistics?.comments ?? 0,
-    favlistsCount:
-      target.favlists_count ??
-      target.favorite_count ??
-      target.reaction?.statistics?.favorites ??
-      0,
+    ...getContentCollectionMetadata(target),
     voted: type === 'videos' ? 0 : (getContentVoteState(type, target) ?? 0),
     type,
     videoSource: getZhihuVideoSource(target.type),

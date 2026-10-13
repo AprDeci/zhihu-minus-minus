@@ -147,10 +147,9 @@ function updateContentRecord(
     }
   }
 
-  if (
-    update.isCollected !== undefined &&
-    !isNormalizedFeedItem(value, update)
-  ) {
+  if (update.isCollected !== undefined && isNormalizedFeedItem(value, update)) {
+    changed = setIfChanged(next, 'isCollected', update.isCollected) || changed;
+  } else if (update.isCollected !== undefined) {
     const relationship = isObjectRecord(next.relationship)
       ? { ...next.relationship }
       : {};
@@ -242,7 +241,9 @@ export function seedRichContentFromFeedItem(
           virtuals: { is_liked: item.voted === 1 },
           reaction: { relation: { liked: item.voted === 1 } },
         }
-      : { relationship: { voting: item.voted } };
+      : {
+          relationship: { voting: item.voted, is_favorited: item.isCollected },
+        };
   const common = {
     id: item.id,
     type: getSingularType(contentType),

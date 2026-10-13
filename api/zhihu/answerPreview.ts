@@ -10,6 +10,7 @@ import type {
 } from '@/types/zhihu';
 import apiClient, { type ApiRequestOptions } from '../client';
 import { getZhihuAppEndpointHeaders } from './appApi';
+import { getContentCollectionMetadata } from './contentCollection';
 import type {
   ZhihuNextRenderPaging,
   ZhihuNextRenderParams,
@@ -30,10 +31,10 @@ export interface ZhihuPreviewAnswerMetadata {
   endorsements?: readonly unknown[];
   voteup_count: number;
   comment_count: number;
-  favlists_count: number;
+  favlists_count?: number;
   relationship: {
     is_author: boolean;
-    is_favorited: boolean;
+    is_favorited?: boolean;
     voting: -1 | 0 | 1;
   };
 }
@@ -156,6 +157,7 @@ function normalizeAnswer(value: Record<string, unknown>): ZhihuPreviewAnswer {
   const statistics = record(reaction?.statistics);
   const relation = record(reaction?.relation);
   const vote = text(relation?.vote).toLowerCase();
+  const collection = getContentCollectionMetadata(value);
   const structuredContent = parseZhihuStructuredContent(
     value.structured_content,
   );
@@ -176,10 +178,10 @@ function normalizeAnswer(value: Record<string, unknown>): ZhihuPreviewAnswer {
     }),
     voteup_count: count(statistics?.up_vote_count),
     comment_count: count(statistics?.comment_count),
-    favlists_count: count(statistics?.favorites),
+    favlists_count: collection.favlistsCount,
     relationship: {
       is_author: value.is_mine === true || relation?.is_author === true,
-      is_favorited: relation?.faved === true,
+      is_favorited: collection.isCollected,
       voting: vote === 'up' ? 1 : vote === 'down' ? -1 : 0,
     },
     structuredContent,

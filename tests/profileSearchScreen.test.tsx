@@ -43,6 +43,9 @@ jest.mock('../api/zhihu', () => ({
   searchContent: jest.fn(),
   getContentVoteCount: () => 0,
   getContentVoteState: () => 0,
+  getContentCollectionMetadata: jest.requireActual<
+    typeof import('../api/zhihu/contentCollection')
+  >('../api/zhihu/contentCollection').getContentCollectionMetadata,
 }));
 jest.mock('@expo/vector-icons/Ionicons', () => () => null);
 jest.mock('react-native-safe-area-context', () => ({
@@ -176,6 +179,8 @@ test('entry focuses search; only trimmed, nonempty terms search the member hash'
   Object.assign(result.data[0].object, {
     content: '<p>合成完整正文</p>',
     author: { ...member, type: 'people' },
+    favlists_count: 13,
+    relationship: { is_favorited: true },
   });
   jest.mocked(searchContent).mockResolvedValue(result);
   const host = await render(screen());
@@ -195,6 +200,10 @@ test('entry focuses search; only trimmed, nonempty terms search the member hash'
   });
   expect(host.getByText('第一条创作')).toBeTruthy();
   expect(mockListProps.data?.[0].content).toBe('<p>合成完整正文</p>');
+  expect(mockListProps.data?.[0]).toMatchObject({
+    isCollected: true,
+    favlistsCount: 13,
+  });
   expect(mockFeedContexts.get('第一条创作')).toEqual({
     scene: 'profile_answer',
     memberId: mockRoute.id,
@@ -327,4 +336,24 @@ test.each([
       '#00f',
     ),
   ).toMatchObject({ id: '2088306465639604943', type: 'videos', videoSource });
+});
+
+test('profile search preserves a known zero count and leaves unavailable collection data unknown', () => {
+  const result = page('合成搜索结果').data[0];
+  Object.assign(result.object, {
+    favlists_count: 0,
+    favorite_count: 8,
+    relationship: { is_favorited: false },
+  });
+  expect(toProfileSearchFeedItem(result, member, '#00f')).toMatchObject({
+    isCollected: false,
+    favlistsCount: 0,
+  });
+  const unknown = toProfileSearchFeedItem(
+    page('缺少收藏数据').data[0],
+    member,
+    '#00f',
+  );
+  expect(unknown?.isCollected).toBeUndefined();
+  expect(unknown?.favlistsCount).toBeUndefined();
 });

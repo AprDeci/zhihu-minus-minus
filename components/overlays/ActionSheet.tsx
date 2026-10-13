@@ -1,8 +1,8 @@
-import FontAwesome6 from '@expo/vector-icons/FontAwesome6';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { BouncyButton } from '@/components/BouncyButton';
+import { CollectionStarIcon } from '@/components/CollectionStarIcon';
 import { Text, useThemeColor, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
@@ -13,7 +13,7 @@ export interface ActionSheetOption {
   key: string;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  iconFamily?: 'ionicons' | 'font-awesome-6';
+  iconFamily?: 'ionicons' | 'collection-star';
   iconSolid?: boolean;
   onPress: () => unknown;
   destructive?: boolean;
@@ -135,12 +135,11 @@ export function ActionSheet({
                       { backgroundColor: iconBackground },
                     ]}
                   >
-                    {option.iconFamily === 'font-awesome-6' ? (
-                      <FontAwesome6
-                        name={option.icon}
+                    {option.iconFamily === 'collection-star' ? (
+                      <CollectionStarIcon
                         size={19}
                         color={iconColor}
-                        solid={option.iconSolid}
+                        filled={option.iconSolid === true}
                       />
                     ) : (
                       <Ionicons

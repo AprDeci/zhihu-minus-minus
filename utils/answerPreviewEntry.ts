@@ -1,4 +1,5 @@
 import type { QueryClient } from '@tanstack/react-query';
+import { getContentCollectionMetadata } from '@/api/zhihu/contentCollection';
 import type { ZhihuPlainPreviewAnswer } from '@/api/zhihu/nextRender';
 import { getAuthSessionVersion } from '@/store/useAuthStore';
 import type { ZhihuContentSegment, ZhihuSegmentInfo } from '@/types/zhihu';
@@ -31,6 +32,7 @@ export interface AnswerPreviewEntrySource {
   commentCount?: number;
   favlists_count?: number;
   favlistsCount?: number;
+  isCollected?: boolean;
   voted?: number;
   is_mine?: boolean;
   relationship?: {
@@ -103,6 +105,7 @@ export function createAnswerPreviewEntry(
   ).toUpperCase();
   const answerType =
     source.paid_info != null ? 'PAID' : rawAnswerType || undefined;
+  const collection = getContentCollectionMetadata(source);
   return {
     id,
     type: 'answer',
@@ -137,19 +140,13 @@ export function createAnswerPreviewEntry(
         source.commentCount ??
         source.reaction?.statistics?.comment_count,
     ),
-    favlists_count: count(
-      source.favlists_count ??
-        source.favlistsCount ??
-        source.reaction?.statistics?.favorites,
-    ),
+    favlists_count: collection.favlistsCount,
     relationship: {
       is_author:
         source.relationship?.is_author === true ||
         source.is_mine === true ||
         source.reaction?.relation?.is_author === true,
-      is_favorited:
-        source.relationship?.is_favorited === true ||
-        source.reaction?.relation?.faved === true,
+      is_favorited: collection.isCollected,
       voting:
         vote === 1 || (vote === undefined && reactionVote === 'up')
           ? 1

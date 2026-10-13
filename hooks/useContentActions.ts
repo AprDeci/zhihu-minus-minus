@@ -76,7 +76,7 @@ export function useContentActions({
     actions.push({
       key: 'collection',
       icon: 'star',
-      iconFamily: 'font-awesome-6',
+      iconFamily: 'collection-star',
       iconSolid: collected === true,
       label: awaitingCollection
         ? collectionStatus.isError

@@ -32,7 +32,7 @@ export const getTopicFeed = async (
   };
   const feedType = typeMapping[type] || type;
   const include =
-    'data[*].target.content,voteup_count,comment_count,author.name,author.avatar_url,author.headline,author.is_following,relationship.voting,relationship.is_author,created_time,segment_infos';
+    'data[*].target.content,voteup_count,comment_count,favlists_count,reaction,author.name,author.avatar_url,author.headline,author.is_following,relationship.voting,relationship.is_author,relationship.is_favorited,created_time,segment_infos';
   const res = await apiClient.get<ZhihuTopicFeedResponse>(
     `/topics/${id}/feeds/${feedType}?include=${include}&limit=20&offset=${offset}`,
     { signal: options.signal },

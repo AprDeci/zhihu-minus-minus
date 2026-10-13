@@ -13,13 +13,11 @@ import {
   type VoteContentType,
   voteContent,
 } from '@/api/zhihu';
-import { colors } from '@/constants/designTokens';
 import { updateContentInteractionCaches } from '@/utils/contentCache';
 import { showToast } from '@/utils/toast';
 import { getZhihuErrorMessage } from '@/utils/zhihuError';
 import { BouncyButton } from './BouncyButton';
 import { Text, useThemeColor } from './Themed';
-import { useColorScheme } from './useColorScheme';
 import { VoteTriangle } from './VoteTriangle';
 
 export const LikeButton = ({
@@ -28,6 +26,7 @@ export const LikeButton = ({
   voted: initialVoted = 0,
   type = 'answers',
   variant = 'default',
+  allowCountShrink = false,
   onVoteChange,
 }: {
   id: string | number;
@@ -35,6 +34,7 @@ export const LikeButton = ({
   voted?: number;
   type?: VoteContentType;
   variant?: 'default' | 'ghost' | 'minimal' | 'segmented';
+  allowCountShrink?: boolean;
   onVoteChange?: (voted: number, count: number) => void;
 }) => {
   const [voted, setVoted] = useState(initialVoted);
@@ -50,8 +50,7 @@ export const LikeButton = ({
   const primaryColor = useThemeColor({}, 'primary');
   const onPrimary = useThemeColor({}, 'onPrimary');
   const borderColor = useThemeColor({}, 'border');
-  const colorScheme = useColorScheme();
-  const mutedColor = colors[colorScheme].iconMuted;
+  const mutedColor = useThemeColor({}, 'textSecondary');
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: FlashList identity changes must reset local reaction state even when the next item has equal initial values.
   React.useEffect(() => {
@@ -141,6 +140,11 @@ export const LikeButton = ({
   return (
     <BouncyButton
       accessibilityRole="button"
+      accessibilityLabel={
+        allowCountShrink
+          ? `${isUpvoted ? '取消赞同' : '赞同'}，${count}`
+          : undefined
+      }
       accessibilityState={{ busy: loading, selected: isUpvoted }}
       onPress={handlePress}
       disabled={loading}
@@ -154,6 +158,7 @@ export const LikeButton = ({
               : 'flex-row items-center justify-center bg-transparent px-1.5 py-1 rounded-full'
       }
       style={[
+        allowCountShrink && { flexShrink: 1, minWidth: 0 },
         variant === 'default' && {
           backgroundColor: isUpvoted ? primaryColor : borderColor,
         },
@@ -175,6 +180,7 @@ export const LikeButton = ({
           style={[
             animatedStyle,
             { flexDirection: 'row', alignItems: 'center' },
+            allowCountShrink && { flexShrink: 1, minWidth: 0 },
           ]}
         >
           <VoteTriangle
@@ -196,7 +202,10 @@ export const LikeButton = ({
               className="text-xs ml-1 font-semibold"
               style={{
                 color: foregroundColor,
+                ...(allowCountShrink && { flexShrink: 1, minWidth: 0 }),
               }}
+              numberOfLines={allowCountShrink ? 1 : undefined}
+              ellipsizeMode={allowCountShrink ? 'tail' : undefined}
             >
               {typeof count === 'number' ? count : count || 0}
             </Text>

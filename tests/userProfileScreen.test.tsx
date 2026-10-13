@@ -64,6 +64,9 @@ jest.mock('../api/zhihu', () => ({
   followMember: jest.fn(),
   unfollowMember: jest.fn(),
   getContentVoteCount: () => 0,
+  getContentCollectionMetadata: jest.requireActual<
+    typeof import('../api/zhihu/contentCollection')
+  >('../api/zhihu/contentCollection').getContentCollectionMetadata,
   getContentVoteState: (
     _type: string,
     item: { relationship?: { voting?: number } },
@@ -236,10 +239,11 @@ const votedAnswer = {
   excerpt: '合成回答摘要',
   content: '<p>合成回答正文</p>',
   comment_count: 3,
+  favlists_count: 5,
   voteup_count: 12,
   created_time: 1,
   updated_time: 2,
-  relationship: { voting: 1 },
+  relationship: { voting: 1, is_favorited: true },
 };
 
 beforeEach(() => {
@@ -690,6 +694,8 @@ test('the votes route counts answers by this profile author that the current acc
       headline: votedAnswer.author.headline,
     },
     voted: 1,
+    isCollected: true,
+    favlistsCount: 5,
     content: votedAnswer.content,
   });
   expect(mockFeedContexts.get(`answers:${votedAnswer.id}`)).toEqual({

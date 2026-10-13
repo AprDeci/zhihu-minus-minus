@@ -5,14 +5,14 @@ import React from 'react';
 import { View as NativeView } from 'react-native';
 import Animated from 'react-native-reanimated';
 import {
+  getContentCollectionMetadata,
   getContentVoteCount,
   getContentVoteState,
   type VoteContentType,
 } from '@/api/zhihu';
+import { CollectionButton } from '@/components/CollectionButton';
 import { MoreActionsButton } from '@/components/MoreActionsButton';
 import { Text, useThemeColor, View } from '@/components/Themed';
-import { useColorScheme } from '@/components/useColorScheme';
-import Colors from '@/constants/Colors';
 import { useCollectionStore } from '@/store/useCollectionStore';
 import type { ZhihuContentSegment } from '@/types/zhihu';
 import { seedAnswerPreviewEntry } from '@/utils/answerPreviewEntry';
@@ -54,9 +54,10 @@ interface CreationItem {
     titleString?: string;
   };
   author?: { name?: string; headline?: string };
-  relationship?: { voting?: number };
+  relationship?: { voting?: number; is_favorited?: boolean };
   reaction?: {
     statistics?: { favorites?: number; like_count?: number };
+    relation?: { faved?: boolean };
   };
 }
 
@@ -90,7 +91,7 @@ export const CreationCard = React.forwardRef<
   ) => {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const colorScheme = useColorScheme();
+    const secondaryColor = useThemeColor({}, 'textSecondary');
     const cardBackground = useThemeColor({}, 'backgroundSecondary');
     const [menuVisible, setMenuVisible] = React.useState(false);
     const footerRef = React.useRef<NativeView>(null);
@@ -106,6 +107,8 @@ export const CreationCard = React.forwardRef<
     const storeCollected = useCollectionStore(
       (state) => state.collectedStatusMap[item.id.toString()],
     );
+    const collection = getContentCollectionMetadata(item);
+    const activeCollected = storeCollected ?? collection.isCollected;
     const identity = `${type}:${item.id}`;
     const previousIdentity = React.useRef(identity);
     React.useEffect(() => {
@@ -250,7 +253,18 @@ export const CreationCard = React.forwardRef<
                 type={voteContentType ?? 'answers'}
                 variant="ghost"
               />
+              {type === 'answer' || type === 'article' ? (
+                <CollectionButton
+                  id={item.id}
+                  type={type}
+                  isCollected={activeCollected}
+                  count={collection.favlistsCount}
+                  variant="inline"
+                />
+              ) : null}
               <BouncyButton
+                accessibilityRole="button"
+                accessibilityLabel="评论"
                 onPress={() => {
                   const commentType =
                     type === 'article'
@@ -267,9 +281,9 @@ export const CreationCard = React.forwardRef<
                 <Ionicons
                   name="chatbubble-outline"
                   size={16}
-                  color={Colors[colorScheme].iconMuted}
+                  color={secondaryColor}
                 />
-                <Text className="ml-1 text-xs font-semibold">
+                <Text type="secondary" className="ml-1 text-xs font-semibold">
                   {(item.comment_count ?? 0) > 0 ? item.comment_count : '0'}
                 </Text>
               </BouncyButton>
@@ -294,7 +308,7 @@ export const CreationCard = React.forwardRef<
             </Text>
             <MoreActionsButton
               onPress={() => setMenuVisible(true)}
-              color={Colors[colorScheme].iconMuted}
+              color={secondaryColor}
               style={{ marginRight: -4 }}
             />
           </View>
@@ -310,7 +324,7 @@ export const CreationCard = React.forwardRef<
             author: item.author?.name,
             authorHeadline: item.author?.headline,
             questionId: item.question?.id,
-            isCollected: storeCollected,
+            isCollected: activeCollected,
             excerpt:
               typeof shareExcerpt === 'string' ? shareExcerpt : undefined,
             url: item.url,

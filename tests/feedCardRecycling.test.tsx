@@ -1,6 +1,7 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type React from 'react';
 import { type FeedItem, voteContent } from '../api/zhihu';
+import type { CollectionButton } from '../components/CollectionButton';
 import { CreationCard } from '../components/CreationCard';
 import { FeedCard } from '../components/FeedCard';
 import { seedAnswerPreviewEntry } from '../utils/answerPreviewEntry';
@@ -24,6 +25,9 @@ let mockShareMenuProps: MenuProps;
 const mockUseContentActions = jest.fn();
 const mockCopy = jest.fn();
 const mockPush = jest.fn();
+const mockCollectionButton = jest.fn(
+  (_props: React.ComponentProps<typeof CollectionButton>) => {},
+);
 
 jest.mock('react-native', () => {
   const native = jest.requireActual('react-native');
@@ -40,6 +44,7 @@ jest.mock('react-native', () => {
   });
 });
 jest.mock('../api/zhihu', () => ({
+  ...jest.requireActual('../api/zhihu/contentCollection'),
   voteContent: jest.fn(),
   getVoteSuccessMessage: () => '合成成功',
   getContentVoteCount: () => 0,
@@ -49,17 +54,23 @@ jest.mock('../api/client', () => ({ hasAuthenticationCookie: () => true }));
 jest.mock('@tanstack/react-query', () => ({ useQueryClient: () => ({}) }));
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
 jest.mock('@expo/vector-icons/Ionicons', () => () => null);
-jest.mock(
-  '@expo/vector-icons/FontAwesome6',
-  () => () =>
-    jest
-      .requireActual('react')
-      .createElement(
-        jest.requireActual('react-native').Text,
-        null,
-        '独立收藏按钮',
-      ),
-);
+jest.mock('../components/CollectionButton', () => {
+  const react = jest.requireActual<typeof import('react')>('react');
+  const native =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    CollectionButton: (
+      props: React.ComponentProps<typeof CollectionButton>,
+    ) => {
+      mockCollectionButton(props);
+      return react.createElement(native.Pressable, {
+        accessibilityRole: 'button',
+        accessibilityLabel: '收藏',
+        testID: `collection:${props.type}:${props.id}`,
+      });
+    },
+  };
+});
 jest.mock('react-native-reanimated', () => ({
   __esModule: true,
   default: {
@@ -263,11 +274,27 @@ test.each([
   'pins',
   'questions',
   'videos',
-] as const)('a %s feed card exposes one more entry without a separate collection control', async (type) => {
+] as const)('a %s feed card exposes its more entry and collection for supported content', async (type) => {
   const host = await render(
     <FeedCard item={{ ...baseItem, type, questionId: 'question' }} />,
   );
-  expect(host.queryByText('独立收藏按钮')).toBeNull();
+  if (type === 'answers' || type === 'articles') {
+    expect(mockCollectionButton).toHaveBeenLastCalledWith({
+      id: 'original',
+      type: type === 'answers' ? 'answer' : 'article',
+      isCollected: undefined,
+      count: undefined,
+      variant: 'inline',
+    });
+    expect(
+      host
+        .getAllByRole('button')
+        .map((button) => button.props.accessibilityLabel)
+        .slice(-3),
+    ).toEqual(['收藏', '评论', '更多操作']);
+  } else {
+    expect(host.queryByRole('button', { name: '收藏' })).toBeNull();
+  }
   expect(mockUseContentActions).toHaveBeenLastCalledWith(
     expect.objectContaining({ enabled: false }),
   );
@@ -288,6 +315,34 @@ test.each([
   );
   expect(host.queryByText('更多:original')).toBeNull();
   expect(host.queryByText('更多:next')).toBeNull();
+  if (type === 'answers' || type === 'articles') {
+    expect(mockCollectionButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'next' }),
+    );
+  }
+});
+
+test('feed collection actions receive the current list state and refreshed count', async () => {
+  const host = await render(
+    <FeedCard item={{ ...baseItem, isCollected: true, favlistsCount: 0 }} />,
+  );
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      id: baseItem.id,
+      isCollected: true,
+      count: 0,
+    }),
+  );
+  await host.rerender(
+    <FeedCard item={{ ...baseItem, isCollected: false, favlistsCount: 12 }} />,
+  );
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      id: baseItem.id,
+      isCollected: false,
+      count: 12,
+    }),
+  );
 });
 
 test('feed previews use the shared action builder with the current content identity', async () => {
@@ -415,7 +470,19 @@ test('ordinary creation cards navigate to answers and reset their more menu afte
     question: { id: 'question', title: '合成问题' },
   };
   const host = await render(<CreationCard item={item} type="answer" />);
-  expect(host.queryByText('独立收藏按钮')).toBeNull();
+  expect(mockCollectionButton).toHaveBeenLastCalledWith({
+    id: 'original',
+    type: 'answer',
+    isCollected: undefined,
+    count: undefined,
+    variant: 'inline',
+  });
+  expect(
+    host
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .slice(-3),
+  ).toEqual(['收藏', '评论', '更多操作']);
   expect(host.queryByText('展开全文')).toBeNull();
   await fireEvent.press(host.getByText('合成原创作'));
   expect(seedAnswerPreviewEntry).toHaveBeenCalledWith(expect.any(Object), {
@@ -449,6 +516,40 @@ test('ordinary creation cards navigate to answers and reset their more menu afte
   expect(host.queryByText('更多:next')).toBeNull();
   expect(host.queryByText('收起回答')).toBeNull();
   expect(host.queryByText('展开全文')).toBeNull();
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({ id: 'next', type: 'answer' }),
+  );
+});
+
+test.each([
+  'article',
+  'pin',
+  'question',
+  'video',
+] as const)('%s creation cards expose collection only for supported content', async (type) => {
+  const host = await render(
+    <CreationCard
+      item={{
+        id: 'creation',
+        title: '合成创作',
+        relationship: { is_favorited: true },
+        favlists_count: 12,
+      }}
+      type={type}
+    />,
+  );
+  if (type === 'article') {
+    expect(mockCollectionButton).toHaveBeenLastCalledWith({
+      id: 'creation',
+      type: 'article',
+      isCollected: true,
+      count: 12,
+      variant: 'inline',
+    });
+  } else {
+    expect(host.queryByRole('button', { name: '收藏' })).toBeNull();
+    expect(mockCollectionButton).not.toHaveBeenCalled();
+  }
 });
 
 test.each([
