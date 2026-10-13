@@ -57,6 +57,7 @@
     "expo-linear-gradient": "~55.0.15",
     "expo-linking": "~55.0.7",
     "expo-media-library": "~55.0.20",
+    "expo-network": "~55.0.18",
     "expo-router": "~55.0.5",
     "expo-screen-orientation": "~55.0.15",
     "expo-secure-store": "~55.0.8",

@@ -56,6 +56,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import { getAnswerEndorsementsKey } from '@/utils/answerEndorsements';
 import { formatDate } from '@/utils/date';
 import { calculateDetailHeaderAppearance } from '@/utils/detailHeaderAppearance';
+import { shouldRetryQuery } from '@/utils/query';
 import { getZhihuErrorMessage, getZhihuErrorStatus } from '@/utils/zhihuError';
 
 const slowTransition = SharedTransition.duration(600);
@@ -156,6 +157,8 @@ export const AnswerDetailView = ({
   const {
     data: answer,
     isLoading: queryLoading,
+    isPending: queryPending,
+    isPaused: queryPaused,
     isError,
     error,
     refetch,
@@ -164,9 +167,10 @@ export const AnswerDetailView = ({
     queryFn: ({ signal }) => getAnswer(id, undefined, { signal }),
     enabled: isFocused,
     staleTime: RICH_CONTENT_STALE_TIME,
-    retry: (failureCount, err) =>
-      getZhihuErrorStatus(err) === 404 ? false : failureCount < 2,
+    retry: shouldRetryQuery,
   });
+  const isAnswerLoading =
+    queryLoading || (queryPending && queryPaused && isFocused);
   const { data: entryEndorsements } = useQuery<readonly unknown[]>({
     queryKey: getAnswerEndorsementsKey(id, sessionVersion),
     queryFn: skipToken,
@@ -555,7 +559,7 @@ export const AnswerDetailView = ({
           </View>
         </View>
 
-        {queryLoading && !answer ? (
+        {isAnswerLoading && !answer ? (
           <AnswerLoadingPlaceholder phase="fetching-answer" />
         ) : isError && !answer && getZhihuErrorStatus(error) !== 404 ? (
           <QueryErrorView

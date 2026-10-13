@@ -75,6 +75,7 @@ let mockPages:
   | undefined;
 const mockAnswerQuestions = new Map<string, { id: string; title: string }>();
 const mockUnavailableAnswers = new Set<string>();
+const mockPausedAnswers = new Set<string>();
 const mockPagerSource = jest.fn();
 let mockPagerProps: PagerProps;
 let mockPagerMounts: number;
@@ -113,7 +114,11 @@ jest.mock('@tanstack/react-query', () => ({
           },
           author: { name: `作者 ${queryKey[1]}` },
         },
-    isLoading: mockUnavailableAnswers.has(String(queryKey[1])),
+    isLoading:
+      mockUnavailableAnswers.has(String(queryKey[1])) &&
+      !mockPausedAnswers.has(String(queryKey[1])),
+    isPending: mockUnavailableAnswers.has(String(queryKey[1])),
+    isPaused: mockPausedAnswers.has(String(queryKey[1])),
   }),
   useQueryClient: () => mockQueryClient,
 }));
@@ -404,6 +409,7 @@ beforeEach(() => {
   };
   mockAnswerQuestions.clear();
   mockUnavailableAnswers.clear();
+  mockPausedAnswers.clear();
   mockAnswerProps.clear();
   mockAnswerMounts.clear();
   mockHeaderThresholds.clear();
@@ -1234,10 +1240,15 @@ test.each([
   expect(mockHeaderMenuProps.data).toEqual({ id: '7', title: '合成问题' });
 });
 
-test('resolves a missing question from the selected answer before the default pager list arrives', async () => {
+test.each([
+  false,
+  true,
+])('resolves a missing question from the selected answer before the default pager list arrives (paused=%s)', async (paused) => {
   mockParams = { id: '42', sortBy: 'default' };
   mockUnavailableAnswers.add('42');
+  if (paused) mockPausedAnswers.add('42');
   const host = await render(React.createElement(AnswerDetailScreen));
+  expect(host.getByText('正在获取回答…')).toBeOnTheScreen();
   expect(mockPagerSource).toHaveBeenLastCalledWith(
     expect.objectContaining({
       questionId: undefined,
@@ -1248,6 +1259,7 @@ test('resolves a missing question from the selected answer before the default pa
   expect(mockPagerMounts).toBe(0);
 
   mockUnavailableAnswers.delete('42');
+  mockPausedAnswers.delete('42');
   mockAnswerQuestions.set('42', { id: 'resolved-question', title: '合成问题' });
   await host.rerender(React.createElement(AnswerDetailScreen));
   expect(mockPagerSource).toHaveBeenLastCalledWith(

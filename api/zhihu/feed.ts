@@ -640,6 +640,7 @@ export const getFeed = async (
       }
     } catch (error) {
       if (axios.isCancel(error)) throw error;
+      if (axios.isAxiosError(error) && !error.response) throw error;
       console.warn('获取同城版块失败，回退到推荐流');
       finalUrl = FEED_URLS.recommend;
     }
@@ -671,6 +672,9 @@ export const getFeed = async (
     });
   } catch (error) {
     if (axios.isCancel(error)) throw error;
+    // Switching endpoints cannot recover a disconnected transport and would
+    // add another full request timeout before the query can retry.
+    if (axios.isAxiosError(error) && !error.response) throw error;
     // Some installs may not yet have all device credentials that the App
     // endpoint expects. Keep the previous browser guest feed as a
     // compatibility fallback instead of leaving a first-time user with no feed.

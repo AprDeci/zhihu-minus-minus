@@ -48,6 +48,7 @@ interface RelationshipNoticeProps {
 
 let mockParams: { id: string; source?: string };
 let mockQueryData: Record<string, unknown>;
+let mockPausedQueries: Set<string>;
 let mockMenuProps: MenuProps;
 let mockMutationOptions: MutationOptions;
 const mockPush = jest.fn();
@@ -91,6 +92,8 @@ jest.mock('@tanstack/react-query', () => ({
   useQuery: ({ queryKey }: { queryKey: readonly unknown[] }) => ({
     data: mockQueryData[String(queryKey[0])],
     isLoading: false,
+    isPending: mockQueryData[String(queryKey[0])] === undefined,
+    isPaused: mockPausedQueries.has(String(queryKey[0])),
     isError: false,
     isFetchedAfterMount: false,
     refetch: jest.fn(),
@@ -392,6 +395,7 @@ const pressButton = (button: Parameters<typeof fireEvent.press>[0]) =>
 beforeEach(() => {
   jest.clearAllMocks();
   mockParams = { id: '7' };
+  mockPausedQueries = new Set();
   mockQueryData = {
     'article-collection-status': { data: [{ is_favorited: false }] },
     'zhihu-article': {
@@ -414,6 +418,50 @@ beforeEach(() => {
       share_url: 'https://daily.zhihu.com/story/7',
     },
   };
+});
+
+test.each([
+  {
+    type: 'article',
+    Screen: ArticleDetail,
+    query: 'zhihu-article',
+    source: undefined,
+    loadingMessage: '正赶往知识的荒原...喵',
+  },
+  {
+    type: 'daily',
+    Screen: ArticleDetail,
+    query: 'daily-article',
+    source: 'daily',
+    loadingMessage: '正赶往知识的荒原...喵',
+  },
+  {
+    type: 'pin',
+    Screen: PinDetailScreen,
+    query: 'pin-detail',
+    source: undefined,
+    loadingMessage: '载入想法中...喵',
+  },
+])('$type waits for its first paused request instead of reporting deleted content', async ({
+  Screen,
+  query,
+  source,
+  loadingMessage,
+}) => {
+  mockParams = { id: '7', source };
+  const content = mockQueryData[query];
+  mockQueryData[query] = undefined;
+  mockPausedQueries.add(query);
+
+  const host = await render(<Screen />);
+  expect(host.getByText(loadingMessage)).toBeOnTheScreen();
+  expect(host.queryByText(/可能已被删除/)).toBeNull();
+  expect(host.queryByTestId('detail-body')).toBeNull();
+
+  mockQueryData[query] = content;
+  await host.rerender(<Screen />);
+  expect(host.queryByText(loadingMessage)).toBeNull();
+  expect(host.getByTestId('detail-body')).toBeOnTheScreen();
 });
 
 test('both article more buttons directly open the same article menu', async () => {
