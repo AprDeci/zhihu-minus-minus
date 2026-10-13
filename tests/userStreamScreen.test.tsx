@@ -1,8 +1,16 @@
 import { act, fireEvent, render } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import type { ZhihuMemberActivity } from '../api/zhihu/member';
+import type { RecentMomentItem } from '../api/zhihu/moments';
 import UserStreamScreen from '../app/user/[id]/stream';
 
+const mockParams: { id: string; unreadCount?: string; source?: string } = {
+  id: 'member-token',
+  unreadCount: '3',
+};
+let mockMoments: RecentMomentItem[] | undefined;
+const mockMarkRead = jest.fn();
+const mockSetPage = jest.fn();
 const mockRefresh = jest.fn();
 const mockFetchNextPage = jest.fn();
 const mockQuery = {
@@ -47,11 +55,14 @@ jest.mock('@shopify/flash-list', () => ({
   },
 }));
 jest.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({
+  useQueryClient: () => ({
+    getQueryData: () => (mockMoments ? { data: mockMoments } : undefined),
+  }),
+  useQuery: ({ queryKey }: { queryKey: string[] }) => ({
     data: {
-      id: 'member-id',
-      url_token: 'member-token',
-      name: '合成用户',
+      id: queryKey[1],
+      url_token: queryKey[1],
+      name: `合成用户 ${queryKey[1]}`,
       type: 'people',
       avatar_url: '',
     },
@@ -62,9 +73,25 @@ jest.mock('@tanstack/react-query', () => ({
 }));
 jest.mock('expo-router', () => ({
   Stack: { Screen: () => null },
-  useLocalSearchParams: () => ({ id: 'member-token', unreadCount: '3' }),
+  useLocalSearchParams: () => mockParams,
   useRouter: () => ({ back: jest.fn() }),
 }));
+jest.mock('../hooks/useMarkRecentMomentRead', () => ({
+  useMarkRecentMomentRead: () => mockMarkRead,
+}));
+jest.mock('react-native-pager-view', () => {
+  const React = jest.requireActual('react');
+  const { View } = jest.requireActual('react-native');
+  return {
+    __esModule: true,
+    default: React.forwardRef(
+      (props: { children: ReactNode }, ref: unknown) => {
+        React.useImperativeHandle(ref, () => ({ setPage: mockSetPage }));
+        return React.createElement(View, props, props.children);
+      },
+    ),
+  };
+});
 jest.mock('react-native-safe-area-context', () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -109,6 +136,10 @@ function activity(id: string): ZhihuMemberActivity {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockParams.id = 'member-token';
+  mockParams.unreadCount = '3';
+  delete mockParams.source;
+  mockMoments = undefined;
   mockQuery.activities = ['a', 'b', 'c'].map(activity);
   mockQuery.refreshing = false;
   mockQuery.isFetching = false;
@@ -159,5 +190,123 @@ test('refreshing query state blocks pagination and a rejected refresh can be ret
   await fireEvent(host.getByTestId('published-stream-list'), 'refresh');
   expect(mockRefresh).toHaveBeenCalledTimes(2);
   expect(host.queryByText('已看完本次更新')).toBeNull();
+  await host.unmount();
+});
+
+function moment(id: string, unreadCount = 3): RecentMomentItem {
+  return {
+    brief: `synthetic-${id}`,
+    actor: {
+      id: `id-${id}`,
+      url_token: id,
+      name: `用户 ${id}`,
+      avatar_url: '',
+    },
+    unread_count: unreadCount,
+  };
+}
+
+async function selectPage(
+  host: Awaited<ReturnType<typeof render>>,
+  position: number,
+) {
+  await fireEvent(host.getByTestId('recent-moment-pager'), 'pageSelected', {
+    nativeEvent: { position },
+  });
+}
+
+test('starts at the tapped user and marks only selected pages, preserving strip order across refreshes', async () => {
+  mockParams.id = 'middle';
+  mockParams.source = 'recent-moments';
+  const entries = ['first', 'middle', 'last', 'distant'].map((id) =>
+    moment(id),
+  );
+  mockMoments = entries;
+  const host = await render(<UserStreamScreen />);
+  expect(host.getByTestId('recent-moment-pager').props.initialPage).toBe(1);
+  expect(host.getByText('合成用户 middle')).toBeTruthy();
+  expect(mockMarkRead).toHaveBeenCalledTimes(1);
+  expect(mockMarkRead).toHaveBeenLastCalledWith(entries[1]);
+  expect(
+    host.queryByText('合成用户 distant', { includeHiddenElements: true }),
+  ).toBeNull();
+
+  await selectPage(host, 2);
+  expect(host.getByText('合成用户 last')).toBeTruthy();
+  expect(mockMarkRead).toHaveBeenLastCalledWith(entries[2]);
+  expect(mockMarkRead).toHaveBeenCalledTimes(2);
+
+  mockMoments = [moment('new'), entries[2], entries[0]];
+  await host.rerender(<UserStreamScreen />);
+  expect(host.getByText('合成用户 last')).toBeTruthy();
+  expect(
+    host.queryByText('合成用户 new', { includeHiddenElements: true }),
+  ).toBeNull();
+  await selectPage(host, 0);
+  expect(host.getByText('合成用户 first')).toBeTruthy();
+  expect(mockMarkRead).toHaveBeenLastCalledWith(entries[0]);
+  expect(host.getByRole('button', { name: '上一位用户' })).toBeDisabled();
+  await selectPage(host, 3);
+  expect(host.getByRole('button', { name: '下一位用户' })).toBeDisabled();
+  expect(host.getByText('合成用户 distant')).toBeTruthy();
+  await host.unmount();
+});
+
+test('paging back preserves each user unread boundary and ignores offscreen pagination', async () => {
+  mockParams.id = 'first';
+  mockParams.source = 'recent-moments';
+  mockMoments = ['first', 'second', 'third', 'fourth'].map((id) => moment(id));
+  const host = await render(<UserStreamScreen />);
+  const activeList = host.getByTestId('published-stream-list');
+  const inactiveList = host.getAllByTestId('published-stream-list', {
+    includeHiddenElements: true,
+  })[1];
+  await fireEvent(inactiveList, 'endReached');
+  expect(mockFetchNextPage).not.toHaveBeenCalled();
+  expect(host.getByText('已看完本次更新')).toBeTruthy();
+  await fireEvent(activeList, 'refresh');
+  expect(host.queryByText('已看完本次更新')).toBeNull();
+
+  await selectPage(host, 1);
+  expect(host.getByText('已看完本次更新')).toBeTruthy();
+  await selectPage(host, 3);
+  await selectPage(host, 0);
+  expect(host.getByTestId('published-stream-list')).toBe(activeList);
+  expect(host.queryByText('已看完本次更新')).toBeNull();
+  await host.unmount();
+});
+
+test('page buttons ask the pager to navigate; only confirmed selection marks read', async () => {
+  mockParams.id = 'first';
+  mockParams.source = 'recent-moments';
+  mockMoments = ['first', 'second'].map((id) => moment(id));
+  const host = await render(<UserStreamScreen />);
+  await fireEvent.press(host.getByRole('button', { name: '下一位用户' }));
+  expect(mockSetPage).toHaveBeenCalledWith(1);
+  expect(mockMarkRead).toHaveBeenCalledTimes(1);
+  expect(host.getByText('合成用户 first')).toBeTruthy();
+  await selectPage(host, -1);
+  await selectPage(host, 2);
+  await selectPage(host, 0.5);
+  expect(mockMarkRead).toHaveBeenCalledTimes(1);
+  await selectPage(host, 1);
+  expect(host.getByText('合成用户 second')).toBeTruthy();
+  expect(mockMarkRead).toHaveBeenCalledTimes(2);
+  await host.unmount();
+});
+
+test.each([
+  undefined,
+  'recent-moments',
+])('direct entry or missing cache remains a single usable user page (source=%s)', async (source) => {
+  mockParams.source = source;
+  mockMoments = source ? undefined : [moment('unrelated')];
+  const host = await render(<UserStreamScreen />);
+  expect(host.getByText('合成用户 member-token')).toBeTruthy();
+  expect(host.getByTestId('recent-moment-pager').props.scrollEnabled).toBe(
+    false,
+  );
+  expect(host.queryByRole('button', { name: '下一位用户' })).toBeNull();
+  expect(mockMarkRead).not.toHaveBeenCalled();
   await host.unmount();
 });
