@@ -34,7 +34,9 @@ export function shouldRetryQuery(
       : false;
   }
 
-  return axios.isAxiosError(error) && failureCount < 2;
+  // A disconnected transport already waits for its own timeout. Give it one
+  // retry, then let reconnect handling or an explicit refresh start fresh.
+  return axios.isAxiosError(error) && failureCount < 1;
 }
 
 /**

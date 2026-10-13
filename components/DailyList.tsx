@@ -128,7 +128,9 @@ export const DailyList = React.forwardRef<
     isFetching,
     isFetchNextPageError,
     isError,
-    isLoading,
+    isLoading: isQueryLoading,
+    isPending,
+    isPaused,
     refetch,
   } = useInfiniteQuery({
     queryKey: ['zhihu-daily'],
@@ -143,6 +145,7 @@ export const DailyList = React.forwardRef<
       getDailyNextPageParam(lastPage, pageParams),
     retry: shouldRetryQuery,
   });
+  const isLoading = isQueryLoading || (isPending && isPaused);
 
   const handleRefresh = useCallback(async () => {
     if (refreshInFlightRef.current) return;

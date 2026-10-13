@@ -37,7 +37,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import type { EdgeInsets } from 'react-native-safe-area-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { WebView } from 'react-native-webview';
 // 使用 @ 别名导入组件
 import {
   FEED_URLS,
@@ -51,6 +50,7 @@ import {
 import { BouncyButton } from '@/components/BouncyButton';
 import { DailyList } from '@/components/DailyList';
 import { FeedCard } from '@/components/FeedCard';
+import { GuestBootstrap } from '@/components/GuestBootstrap';
 import { HotCard, type HotItem } from '@/components/HotCard';
 import { PullToRefresh } from '@/components/PullToRefresh';
 import { QueryErrorView } from '@/components/QueryErrorView';
@@ -60,6 +60,7 @@ import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { hasReusableAnswerDetail } from '@/features/rich-content';
 import { useCollapsibleChromeScroll } from '@/hooks/useCollapsibleChromeScroll';
+import { useGuestBootstrap } from '@/hooks/useGuestBootstrap';
 import { useScopedAsyncValue } from '@/hooks/useScopedAsyncValue';
 import {
   type FeedCacheContext,
@@ -219,7 +220,8 @@ export default function HomeScreen() {
   const secondaryTextColor = useThemeColor({}, 'textSecondary');
   const indicatorBgColor = useThemeColor({}, 'primary_26');
   const [currentPage, setCurrentPage] = useState(initialPageIndex);
-  const [guestCookieReady, setGuestCookieReady] = useState(false);
+  const { ready: guestCookieReady, attempt: guestBootstrapAttempt } =
+    useGuestBootstrap(!cookies);
 
   // 懒加载 Tab 标签页记录：仅在访问过的 Tab 渲染对应组件，避免冷启动时并发请求所有 Tab 的接口
   const [visitedPages, setVisitedPages] = useState<Set<number>>(
@@ -683,37 +685,11 @@ export default function HomeScreen() {
           </BlurView>
         </Animated.View>
       )}
-      {!cookies && !guestCookieReady && (
-        <View
-          style={{
-            width: 1,
-            height: 1,
-            opacity: 0,
-            position: 'absolute',
-            pointerEvents: 'none',
-          }}
-        >
-          <WebView
-            source={{ uri: 'https://www.zhihu.com/' }}
-            sharedCookiesEnabled={true}
-            injectedJavaScript={`
-              (function() {
-                var checkCookie = setInterval(function() {
-                  if (document.cookie.includes('d_c0')) {
-                    clearInterval(checkCookie);
-                    setTimeout(function() {
-                      window.ReactNativeWebView.postMessage('ready');
-                    }, 2000); // 找到 d_c0 后再等 2 秒，让其他 cookie 载入
-                  }
-                }, 500);
-              })();
-              true;
-            `}
-            onMessage={() => {
-              setGuestCookieReady(true);
-            }}
-          />
-        </View>
+      {guestBootstrapAttempt && (
+        <GuestBootstrap
+          key={guestBootstrapAttempt.id}
+          attempt={guestBootstrapAttempt}
+        />
       )}
     </View>
   );
@@ -1050,7 +1026,9 @@ const FeedList = React.forwardRef<
       isFetchingNextPage,
       isFetching,
       isFetchNextPageError,
-      isLoading,
+      isLoading: isFeedLoading,
+      isPending,
+      isPaused,
       isError,
       error: feedError,
       isRefetching,
@@ -1109,6 +1087,10 @@ const FeedList = React.forwardRef<
         (!localDedupEnabled || exposureReady) &&
         (!launchCacheContext || isCacheCheckDone),
     });
+    const isLoading =
+      isFeedLoading ||
+      (isPending && isPaused) ||
+      (!cookies && !guestCookieReady);
 
     const handleRefresh = useCallback(async () => {
       if (refreshInFlightRef.current) return;

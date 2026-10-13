@@ -4,7 +4,7 @@ import {
   ThemeProvider,
 } from '@react-navigation/native';
 import * as Sentry from '@sentry/react-native';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { type Href, Stack, useRouter } from 'expo-router';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,6 +20,7 @@ import { GradientMaskOverlay } from '@/components/GradientMaskOverlay';
 import { useRuntimeThemeColors } from '@/components/Themed';
 import { UpdateChecker } from '@/components/UpdateChecker';
 import { VerificationModal } from '@/components/VerificationModal';
+import { useQueryConnectivity } from '@/hooks/useQueryConnectivity';
 import {
   useSyncThemeWithNativeWind,
   useThemeStore,
@@ -32,7 +33,7 @@ import { AppState, type AppStateStatus, Linking } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useTelemetryStore } from '@/store/useTelemetryStore';
 import { consumeAppClipboardText } from '@/utils/clipboard';
-import { shouldRetryQuery } from '@/utils/query';
+import { createAppQueryClient } from '@/utils/queryClient';
 import { initializeTelemetry, setTelemetryEnabled } from '@/utils/telemetry';
 
 initializeTelemetry();
@@ -40,21 +41,14 @@ initializeTelemetry();
 // 保持启动页显示，直到资源加载完成
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: shouldRetryQuery,
-      // 这里的配置确保不会因为网络瞬间闪烁在验证期间反复弹窗
-      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    },
-  },
-});
+const queryClient = createAppQueryClient();
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
 };
 
 function RootLayout() {
+  useQueryConnectivity(queryClient);
   const router = useRouter();
   const isDark = useThemeStore((state) => state.isDark);
   const hasThemeHydrated = useThemeStore((state) => state.hasHydrated);

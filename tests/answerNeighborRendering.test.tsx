@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  onlineManager,
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query';
 import { act, render, waitFor } from '@testing-library/react-native';
 import type { ReactNode } from 'react';
 import { type AnswerDetail, getAnswer } from '../api/zhihu';
@@ -339,6 +343,7 @@ function expectInactiveReading() {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  onlineManager.setOnline(true);
   mockSessionVersion = 1;
   mockContentLoadingPhase = null;
   jest.mocked(getAnswer).mockResolvedValue(answer);
@@ -350,6 +355,50 @@ beforeEach(() => {
 afterEach(() => {
   for (const client of clients) client.clear();
   clients.length = 0;
+  onlineManager.setOnline(true);
+});
+
+test('shows a waiting placeholder only after an offline answer becomes active and loads it on reconnect', async () => {
+  onlineManager.setOnline(false);
+  const host = await renderAnswer({ cached: false, isFocused: false });
+  expect(host.queryByText('正在获取回答…')).toBeNull();
+  expect(getAnswer).not.toHaveBeenCalled();
+
+  await host.rerender(host.page(true, true));
+  expect(
+    host.queryClient.getQueryState(['answer-detail', answer.id])?.fetchStatus,
+  ).toBe('paused');
+  expect(host.getByText('正在获取回答…')).toBeOnTheScreen();
+  expect(host.queryByTestId('answer-body')).toBeNull();
+  expect(host.queryByText(/可能已被删除/)).toBeNull();
+  expect(getAnswer).not.toHaveBeenCalled();
+
+  await act(() => onlineManager.setOnline(true));
+  await waitFor(() =>
+    expect(host.getByTestId('answer-body')).toHaveTextContent(answer.content),
+  );
+  expect(host.queryByText('正在获取回答…')).toBeNull();
+  expect(getAnswer).toHaveBeenCalledTimes(1);
+  await host.unmount();
+});
+
+test('keeps cached answer content visible when its background refresh is paused offline', async () => {
+  onlineManager.setOnline(false);
+  const host = await renderAnswer({ isFocused: true });
+  await act(async () => {
+    await host.queryClient.invalidateQueries({
+      queryKey: ['answer-detail', answer.id],
+      exact: true,
+    });
+  });
+
+  expect(
+    host.queryClient.getQueryState(['answer-detail', answer.id])?.fetchStatus,
+  ).toBe('paused');
+  expect(host.getByTestId('answer-body')).toHaveTextContent(answer.content);
+  expect(host.queryByText('正在获取回答…')).toBeNull();
+  expect(getAnswer).not.toHaveBeenCalled();
+  await host.unmount();
 });
 
 test('mounts a cached neighboring body before focus without starting detail, collection, relationship, or reading work', async () => {

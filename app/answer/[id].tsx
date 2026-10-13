@@ -19,7 +19,7 @@ import { useAnswerPagerSource } from '@/hooks/useAnswerPagerSource';
 import { useNeighborAnswerPrefetch } from '@/hooks/useNeighborAnswerPrefetch';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { getAnswerReadingContext } from '@/utils/answerReadingContext';
-import { getZhihuErrorStatus } from '@/utils/zhihuError';
+import { shouldRetryQuery } from '@/utils/query';
 
 export default function AnswerScreen() {
   const params = useLocalSearchParams<{
@@ -83,14 +83,20 @@ function AnswerDetailScreen() {
   }, [enableBrowseHistory, initialId]);
 
   // 先获取选中回答，默认切换同题回答，明确的用户来源切换该用户的回答。
-  const { data: initialAnswer, isLoading: loadingInitial } = useQuery({
+  const {
+    data: initialAnswer,
+    isLoading: initialQueryLoading,
+    isPending: initialPending,
+    isPaused: initialPaused,
+  } = useQuery({
     queryKey: ['answer-detail', initialId],
     queryFn: ({ signal }) => getAnswer(initialId, undefined, { signal }),
     enabled: !!initialId,
     staleTime: RICH_CONTENT_STALE_TIME,
-    retry: (failureCount, err) =>
-      getZhihuErrorStatus(err) === 404 ? false : failureCount < 2,
+    retry: shouldRetryQuery,
   });
+  const loadingInitial =
+    initialQueryLoading || (initialPending && initialPaused);
 
   const questionId =
     answerContext.scene === 'question_feed'
@@ -204,8 +210,7 @@ function AnswerDetailScreen() {
     queryFn: ({ signal }) => getAnswer(currentId, undefined, { signal }),
     enabled: !!currentId,
     staleTime: RICH_CONTENT_STALE_TIME,
-    retry: (failureCount, err) =>
-      getZhihuErrorStatus(err) === 404 ? false : failureCount < 2,
+    retry: shouldRetryQuery,
   });
   const headerQuestionId =
     currentAnswer?.question?.id ||

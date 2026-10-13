@@ -33,7 +33,7 @@ import { useReadingProgress } from '@/hooks/useReadingProgress';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import type { ZhihuPin, ZhihuPinPoll } from '@/types/zhihu';
 import { formatDateTime } from '@/utils/date';
-import { getZhihuErrorStatus } from '@/utils/zhihuError';
+import { shouldRetryQuery } from '@/utils/query';
 
 export default function PinDetailScreen() {
   const colorScheme = useColorScheme();
@@ -62,16 +62,18 @@ export default function PinDetailScreen() {
 
   const {
     data: pin,
-    isLoading,
+    isLoading: isQueryLoading,
+    isPending,
+    isPaused,
     isError,
     refetch,
   } = useQuery({
     queryKey: ['pin-detail', id],
     queryFn: () => getPin(id as string),
     staleTime: RICH_CONTENT_STALE_TIME,
-    retry: (failureCount, err) =>
-      getZhihuErrorStatus(err) === 404 ? false : failureCount < 2,
+    retry: shouldRetryQuery,
   });
+  const isLoading = isQueryLoading || (isPending && isPaused);
 
   const readingProgress = useReadingProgress({
     contentKey: `pin:${String(id ?? '')}`,

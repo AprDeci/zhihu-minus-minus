@@ -47,7 +47,7 @@ import { useSettingsStore } from '@/store/useSettingsStore';
 import type { ZhihuArticle } from '@/types/zhihu';
 import { formatDate } from '@/utils/date';
 import { getCachedImageSource } from '@/utils/imageSource';
-import { getZhihuErrorStatus } from '@/utils/zhihuError';
+import { shouldRetryQuery } from '@/utils/query';
 
 const ARTICLE_ACTION_BAR_OFFSET = 10;
 
@@ -83,20 +83,23 @@ export default function ArticleDetail() {
   const {
     data: dailyData,
     isLoading: dailyLoading,
+    isPending: dailyPending,
+    isPaused: dailyPaused,
     isError: dailyError,
     refetch: refetchDaily,
   } = useQuery({
     queryKey: ['daily-article', id],
     queryFn: () => getDailyDetail(id as string),
     enabled: source === 'daily',
-    retry: (failureCount, err) =>
-      getZhihuErrorStatus(err) === 404 ? false : failureCount < 2,
+    retry: shouldRetryQuery,
   });
 
   // 2. 获取知乎普通文章详情
   const {
     data: zhihuData,
     isLoading: zhihuLoading,
+    isPending: zhihuPending,
+    isPaused: zhihuPaused,
     isError: zhihuError,
     refetch: refetchZhihu,
   } = useQuery({
@@ -104,11 +107,12 @@ export default function ArticleDetail() {
     queryFn: () => getArticle(id as string),
     enabled: source !== 'daily',
     staleTime: RICH_CONTENT_STALE_TIME,
-    retry: (failureCount, err) =>
-      getZhihuErrorStatus(err) === 404 ? false : failureCount < 2,
+    retry: shouldRetryQuery,
   });
 
-  const isLoading = isDaily ? dailyLoading : zhihuLoading;
+  const isLoading = isDaily
+    ? dailyLoading || (dailyPending && dailyPaused)
+    : zhihuLoading || (zhihuPending && zhihuPaused);
   const data = isDaily ? dailyData : zhihuData;
   const isError = isDaily ? dailyError : zhihuError;
   const refetchContent = isDaily ? refetchDaily : refetchZhihu;
