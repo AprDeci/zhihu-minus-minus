@@ -1,10 +1,44 @@
 import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import type { ComponentProps } from 'react';
 import { voteContent } from '../api/zhihu';
 import type { ZhihuPreviewAnswerMetadata } from '../api/zhihu/nextRender';
 import { voteContent as downvoteContent } from '../api/zhihu/voters';
 import { AnswerPreviewFloatingBar } from '../components/AnswerPreviewFloatingBar';
+import type { CollectionButton } from '../components/CollectionButton';
 import { getContentActionBarBottom } from '../components/ContentActionBar';
 import { FeedCardActionRow } from '../components/FeedCardActionRow';
+
+const mockCollectionButton = jest.fn(
+  (_props: ComponentProps<typeof CollectionButton>) => {},
+);
+const mockRouterPush = jest.fn();
+const mockWindowDimensions = jest.fn(() => ({
+  width: 393,
+  height: 852,
+  scale: 3,
+  fontScale: 1,
+}));
+
+jest.mock('react-native/Libraries/Utilities/useWindowDimensions', () => ({
+  __esModule: true,
+  default: () => mockWindowDimensions(),
+}));
+
+jest.mock('../components/CollectionButton', () => {
+  const react = jest.requireActual<typeof import('react')>('react');
+  const native =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    CollectionButton: (props: ComponentProps<typeof CollectionButton>) => {
+      mockCollectionButton(props);
+      return react.createElement(native.Pressable, {
+        accessibilityRole: 'button',
+        accessibilityLabel: '收藏',
+        testID: `collection:${props.type}:${props.id}`,
+      });
+    },
+  };
+});
 
 jest.mock('../api/zhihu', () => ({
   voteContent: jest.fn(),
@@ -18,7 +52,7 @@ jest.mock('@tanstack/react-query', () => ({
   useQueryClient: () => ({}),
 }));
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush }),
 }));
 jest.mock('react-native-reanimated', () => {
   const react = jest.requireActual<typeof import('react')>('react');
@@ -88,7 +122,15 @@ jest.mock('../utils/contentCache', () => ({
 }));
 jest.mock('../utils/toast', () => ({ showToast: jest.fn() }));
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  mockWindowDimensions.mockReturnValue({
+    width: 393,
+    height: 852,
+    scale: 3,
+    fontScale: 1,
+  });
+});
 
 test('inline actions vote on the current answer and open comments and more', async () => {
   const onComments = jest.fn();
@@ -102,6 +144,8 @@ test('inline actions vote on the current answer and open comments and more', asy
       voted={0}
       engagementType="answers"
       commentCount={7}
+      isCollected
+      collectionCount={12}
       commentAccessibilityLabel="查看评论"
       onVoteChange={onVoteChange}
       onComments={onComments}
@@ -109,6 +153,19 @@ test('inline actions vote on the current answer and open comments and more', asy
     />,
   );
   expect(host.queryByTestId('downvote-icon')).toBeNull();
+  expect(mockCollectionButton).toHaveBeenLastCalledWith({
+    id: 'answer-a',
+    type: 'answer',
+    isCollected: true,
+    count: 12,
+    variant: 'inline',
+  });
+  expect(
+    host
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .slice(-3),
+  ).toEqual(['收藏', '查看评论', '更多操作']);
   const commentButton = host.getByRole('button', { name: '查看评论' });
   const moreButton = host.getByRole('button', { name: '更多操作' });
   await fireEvent.press(commentButton);
@@ -134,8 +191,16 @@ test('preview downvote actions follow the current answer', async () => {
   const host = await render(<FeedCardActionRow {...props} />);
   expect(host.getByRole('button', { name: '反对' })).toBeTruthy();
   await host.rerender(
-    <FeedCardActionRow {...props} id="answer-b" voted={-1} />,
+    <FeedCardActionRow {...props} id="answer-b" voted={-1} isCollected />,
   );
+  expect(mockCollectionButton).toHaveBeenLastCalledWith({
+    id: 'answer-b',
+    type: 'answer',
+    isCollected: true,
+    count: undefined,
+    variant: 'inline',
+  });
+  expect(host.queryByTestId('collection:answer:answer-a')).toBeNull();
   jest.mocked(downvoteContent).mockResolvedValue({ voted: 0, voteCount: 19 });
   await fireEvent.press(host.getByRole('button', { name: '取消反对' }));
   expect(downvoteContent).toHaveBeenCalledWith(
@@ -146,6 +211,33 @@ test('preview downvote actions follow the current answer', async () => {
   await waitFor(() =>
     expect(host.getByRole('button', { name: '反对' })).toBeTruthy(),
   );
+});
+
+test.each([
+  'articles',
+  'pins',
+  'questions',
+] as const)('%s inline actions offer collection only for supported content', async (engagementType) => {
+  const host = await render(
+    <FeedCardActionRow
+      id="current-content"
+      voteCount={0}
+      voted={0}
+      engagementType={engagementType}
+      commentCount={0}
+      onComments={jest.fn()}
+      onMore={jest.fn()}
+    />,
+  );
+  if (engagementType === 'articles') {
+    expect(mockCollectionButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: 'current-content', type: 'article' }),
+    );
+    expect(host.getByRole('button', { name: '收藏' })).toBeTruthy();
+  } else {
+    expect(mockCollectionButton).not.toHaveBeenCalled();
+    expect(host.queryByRole('button', { name: '收藏' })).toBeNull();
+  }
 });
 
 test('non-engagement cards retain their more action without vote or comment controls', async () => {
@@ -163,12 +255,13 @@ test('non-engagement cards retain their more action without vote or comment cont
   );
   expect(host.queryByTestId('vote-icon')).toBeNull();
   expect(host.queryByTestId('icon:chatbubble-outline')).toBeNull();
+  expect(mockCollectionButton).not.toHaveBeenCalled();
   expect(host.getAllByRole('button')).toHaveLength(1);
   await fireEvent.press(host.getByRole('button', { name: '更多操作' }));
   expect(onMore).toHaveBeenCalledTimes(1);
 });
 
-test('floating bar keeps later answer collapse while a fixed first answer has only vote, comment and more', async () => {
+test('floating bar keeps collection before comments with or without answer collapse', async () => {
   const answer: ZhihuPreviewAnswerMetadata = {
     id: 'answer-a',
     type: 'answer',
@@ -191,11 +284,30 @@ test('floating bar keeps later answer collapse while a fixed first answer has on
       onMore={onMore}
     />,
   );
+  expect(mockCollectionButton).toHaveBeenLastCalledWith({
+    id: answer.id,
+    type: 'answer',
+    isCollected: false,
+    count: 0,
+    compact: false,
+    disabled: false,
+  });
+  const actionLabels = host
+    .getAllByRole('button')
+    .map((button) => button.props.accessibilityLabel);
+  expect(actionLabels.indexOf('收藏') + 1).toBe(
+    actionLabels.indexOf('7 条回答评论'),
+  );
   await fireEvent.press(host.getByRole('button', { name: '收起当前回答' }));
   expect(onCollapse).toHaveBeenCalledWith(answer.id);
+  const nextAnswer = {
+    ...answer,
+    id: 'answer-b',
+    relationship: { ...answer.relationship, is_favorited: true },
+  };
   await host.rerender(
     <AnswerPreviewFloatingBar
-      answer={answer}
+      answer={nextAnswer}
       visible
       bottomInset={0}
       canCollapse={false}
@@ -203,10 +315,98 @@ test('floating bar keeps later answer collapse while a fixed first answer has on
       onMore={onMore}
     />,
   );
+  expect(mockCollectionButton).toHaveBeenLastCalledWith({
+    id: nextAnswer.id,
+    type: 'answer',
+    isCollected: true,
+    count: 0,
+    compact: false,
+    disabled: false,
+  });
+  expect(host.queryByTestId('collection:answer:answer-a')).toBeNull();
   expect(host.queryByRole('button', { name: '收起当前回答' })).toBeNull();
   expect(host.getByRole('button', { name: '7 条回答评论' })).toBeTruthy();
   await fireEvent.press(host.getByRole('button', { name: '回答更多操作' }));
+  expect(onMore).toHaveBeenCalledWith(nextAnswer);
+});
+
+test.each([
+  { width: 320, fontScale: 1, visibleCommentCount: false },
+  { width: 360, fontScale: 1, visibleCommentCount: true },
+  { width: 430, fontScale: 1.4, visibleCommentCount: false },
+  { width: 430, fontScale: 1, visibleCommentCount: true },
+])('floating actions remain usable at width $width and font scale $fontScale', async ({
+  width,
+  fontScale,
+  visibleCommentCount,
+}) => {
+  mockWindowDimensions.mockReturnValue({
+    width,
+    height: 852,
+    scale: 3,
+    fontScale,
+  });
+  const answer: ZhihuPreviewAnswerMetadata = {
+    id: 'answer-large-counts',
+    type: 'answer',
+    question: { id: 'question-a', title: '合成问题' },
+    author: {
+      id: '',
+      name: '',
+      url_token: '',
+      avatar_url: '',
+      headline: '',
+    },
+    excerpt: '',
+    voteup_count: 123456,
+    comment_count: 9876,
+    favlists_count: 12345,
+    relationship: { is_author: false, is_favorited: false, voting: 0 },
+  };
+  const onCollapse = jest.fn();
+  const onMore = jest.fn();
+  jest.mocked(voteContent).mockResolvedValue({
+    voted: 1,
+    voteCount: answer.voteup_count + 1,
+  });
+  jest.mocked(downvoteContent).mockResolvedValue({ voted: -1 });
+  const host = await render(
+    <AnswerPreviewFloatingBar
+      answer={answer}
+      visible
+      bottomInset={0}
+      onCollapse={onCollapse}
+      onMore={onMore}
+    />,
+  );
+
+  expect(host.getByRole('button', { name: '收藏' })).toBeTruthy();
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      count: 12345,
+      compact: !visibleCommentCount,
+    }),
+  );
+  expect(host.getByTestId('vote-icon')).toBeTruthy();
+  expect(host.getByTestId('downvote-icon')).toBeTruthy();
+  expect(host.queryByText('9876') !== null).toBe(visibleCommentCount);
+  await fireEvent.press(host.getByRole('button', { name: '9876 条回答评论' }));
+  expect(mockRouterPush).toHaveBeenCalledWith({
+    pathname: '/comments/[id]',
+    params: { id: answer.id, type: 'answer', count: 9876 },
+  });
+  await fireEvent.press(host.getByRole('button', { name: '赞同，123456' }));
+  await waitFor(() =>
+    expect(voteContent).toHaveBeenCalledWith(answer.id, 'answers', 'up'),
+  );
+  await fireEvent.press(host.getByRole('button', { name: '反对' }));
+  await waitFor(() =>
+    expect(downvoteContent).toHaveBeenCalledWith(answer.id, 'answers', 'down'),
+  );
+  await fireEvent.press(host.getByRole('button', { name: '回答更多操作' }));
   expect(onMore).toHaveBeenCalledWith(answer);
+  await fireEvent.press(host.getByRole('button', { name: '收起当前回答' }));
+  expect(onCollapse).toHaveBeenCalledWith(answer.id);
 });
 
 test('floating actions stay above the safe area and requested offset', () => {

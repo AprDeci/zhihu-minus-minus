@@ -13,7 +13,7 @@ export const MEMBER_INCLUDE =
   'url_token,answer_count,articles_count,question_count,pins_count,follower_count,following_count,headline,cover_url,description,voteup_count,thanked_count,favorited_count,is_following,mutual_followees_count';
 
 export const MEMBER_ANSWERS_INCLUDE =
-  'data[*].is_normal,admin_closed_comment,reward_info,is_collapsed,annotation_action,annotation_detail,collapse_reason,collapsed_by,suggest_edit,comment_count,can_comment,content,editable_content,attachment,voteup_count,reshipment_settings,comment_permission,created_time,updated_time,review_info,excerpt,endorsements,paid_info,reaction_instruction,is_labeled,label_info,relationship.is_authorized,voting,is_author,is_thanked,is_nothelp,reaction,vessay_info;data[*].author.badge[?(type=best_answerer)].topics;data[*].author.kvip_info;data[*].author.vip_info;data[*].question.has_publishing_draft,relationship';
+  'data[*].is_normal,admin_closed_comment,reward_info,is_collapsed,annotation_action,annotation_detail,collapse_reason,collapsed_by,suggest_edit,comment_count,can_comment,content,editable_content,attachment,voteup_count,favlists_count,reshipment_settings,comment_permission,created_time,updated_time,review_info,excerpt,endorsements,paid_info,reaction_instruction,is_labeled,label_info,relationship.is_authorized,voting,is_author,is_thanked,is_nothelp,is_favorited,reaction,vessay_info;data[*].author.badge[?(type=best_answerer)].topics;data[*].author.kvip_info;data[*].author.vip_info;data[*].question.has_publishing_draft,relationship';
 
 const MEMBER_COLUMNS_INCLUDE =
   'data[*].column.intro,followers,articles_count,voteup_count,items_count';
@@ -87,6 +87,7 @@ export interface ZhihuMemberActivityTarget {
   favlists_count?: number;
   favorite_count?: number;
   reaction?: {
+    relation?: { faved?: boolean };
     statistics?: {
       comments?: number;
       favorites?: number;
@@ -94,7 +95,7 @@ export interface ZhihuMemberActivityTarget {
   };
   created?: number;
   created_time?: number;
-  relationship?: { voting?: number };
+  relationship?: { voting?: number; is_favorited?: boolean };
   author?: Partial<ZhihuAuthor>;
   question?: {
     id?: string | number;
@@ -131,6 +132,7 @@ interface RawZhihuMemberActivity extends Omit<ZhihuMemberActivity, 'target'> {
     reaction_relation?: { vote?: number | string };
     relationship?: {
       voting?: number | string;
+      is_favorited?: boolean;
       [key: string]: unknown;
     };
     [key: string]: unknown;
@@ -240,7 +242,9 @@ export const getRecentMemberActivities = async (
           relationship:
             normalizedVoting !== undefined && Number.isFinite(normalizedVoting)
               ? { ...target.relationship, voting: normalizedVoting }
-              : undefined,
+              : target.relationship
+                ? { ...target.relationship, voting: undefined }
+                : undefined,
         },
       };
     }),
@@ -260,9 +264,23 @@ export const getMemberRelations = async (
   options: ApiRequestOptions = {},
 ): Promise<ZhihuListResponse<ZhihuMemberRelation>> => {
   const endpoint = `/members/${id}/${type}`;
+  const collectionInclude =
+    type === 'answers' || type === 'articles'
+      ? 'data[*].favlists_count,reaction,relationship.is_favorited'
+      : undefined;
   const res = await apiClient.get<ZhihuListResponse<ZhihuMemberRelation>>(
     endpoint,
-    { ...options, params },
+    {
+      ...options,
+      params: collectionInclude
+        ? {
+            ...params,
+            include: [params.include, collectionInclude]
+              .filter(Boolean)
+              .join(';'),
+          }
+        : params,
+    },
   );
   return res.data;
 };

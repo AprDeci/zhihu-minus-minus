@@ -1,15 +1,13 @@
 import {
   type FeedItem,
+  getContentCollectionMetadata,
   getContentVoteCount,
   getContentVoteState,
   type ZhihuMember,
 } from '@/api/zhihu';
 import type { FeedContentSegment } from '@/api/zhihu/feed';
 import { Text } from '@/components/Themed';
-import type {
-  ZhihuSearchResultItem,
-  ZhihuSearchResultObject,
-} from '@/types/zhihu';
+import type { ZhihuSearchResultItem } from '@/types/zhihu';
 import { normalizeUserFeedType } from '@/utils/userProfile';
 import { getZhihuVideoSource } from '@/utils/zhihuVideo';
 
@@ -131,12 +129,7 @@ export function toProfileSearchFeedItem(
   member: ZhihuMember,
   highlightColor: string,
 ): FeedItem | null {
-  const content = result.object as
-    | (ZhihuSearchResultObject & {
-        favlists_count?: number;
-        favorite_count?: number;
-      })
-    | undefined;
+  const content = result.object;
   if (!content || !String(content.id ?? '').trim()) return null;
   const type = normalizeUserFeedType(content.type);
   if (!type) return null;
@@ -174,6 +167,6 @@ export function toProfileSearchFeedItem(
           ? String(content.id)
           : undefined,
     voted: type === 'videos' ? 0 : (getContentVoteState(type, content) ?? 0),
-    favlistsCount: content.favlists_count || content.favorite_count || 0,
+    ...getContentCollectionMetadata(content),
   };
 }

@@ -17,6 +17,7 @@ export interface ContentActionBarProps {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   visible?: boolean;
+  shrinkLeading?: boolean;
 }
 
 /** Preserve safe-area clearance, then raise the floating bar by 20. */
@@ -38,6 +39,7 @@ export function ContentActionBar({
   children,
   style,
   visible = true,
+  shrinkLeading = false,
 }: ContentActionBarProps) {
   const colors = useRuntimeThemeColors();
   const colorScheme = useColorScheme();
@@ -64,6 +66,7 @@ export function ContentActionBar({
           <View
             style={[
               styles.islandShadow,
+              shrinkLeading && styles.shrinkableLeading,
               {
                 backgroundColor: colors.contentOverlayStrong,
               },
@@ -195,7 +198,16 @@ export function ContentActionBar({
       >
         {leading || trailing || accessory ? (
           <View style={styles.barRow}>
-            {leading ? <View style={styles.leadingSlot}>{leading}</View> : null}
+            {leading ? (
+              <View
+                style={[
+                  styles.leadingSlot,
+                  shrinkLeading && styles.shrinkableLeading,
+                ]}
+              >
+                {leading}
+              </View>
+            ) : null}
             <View style={styles.trailingSlot}>
               {trailing}
               {accessory ? (
@@ -258,6 +270,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  shrinkableLeading: {
+    flexShrink: 1,
+    minWidth: 0,
   },
   islandRightGroup: {
     flexDirection: 'row',

@@ -240,7 +240,7 @@ export const getAnswer = async (
   options?: { signal?: AbortSignal },
 ): Promise<AnswerDetail> => {
   const defaultInclude =
-    'content,editable_content,paid_info,can_comment,excerpt,thanks_count,voteup_count,comment_count,visited_count,reaction,ip_info,question.topics,author.is_following,reaction.relation.voting,segment_infos,endorsements,favlists_count';
+    'content,editable_content,paid_info,can_comment,excerpt,thanks_count,voteup_count,comment_count,visited_count,reaction,ip_info,question.topics,author.is_following,reaction.relation.voting,segment_infos,endorsements,favlists_count,relationship.is_favorited';
   const res = await apiClient.get<AnswerDetail>(
     `/answers/${id}?include=${include || defaultInclude}`,
     { signal: options?.signal },

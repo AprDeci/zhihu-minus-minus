@@ -18,6 +18,7 @@ import Reanimated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { hasAuthenticationCookie } from '@/api/client';
+import { getContentCollectionMetadata } from '@/api/zhihu';
 import {
   type AnswerDetail,
   deleteAnswer,
@@ -33,6 +34,7 @@ import {
   type ZhihuQuestionDetail,
 } from '@/api/zhihu/question';
 import { BouncyButton } from '@/components/BouncyButton';
+import { CollectionButton } from '@/components/CollectionButton';
 import { ContentActionButton } from '@/components/ContentActionButton';
 import {
   DetailNavigationHeader,
@@ -199,6 +201,15 @@ const QuestionAnswerCard = React.memo(function QuestionAnswerCard({
           voted={item.relationship?.voting}
           type="answers"
           variant="ghost"
+        />
+        <CollectionButton
+          id={item.id}
+          type="answer"
+          count={getContentCollectionMetadata(item).favlistsCount}
+          isCollected={
+            item.reaction?.relation?.faved ?? item.relationship?.is_favorited
+          }
+          variant="inline"
         />
         <ContentActionButton
           accessibilityRole="button"

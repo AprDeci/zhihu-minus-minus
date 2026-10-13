@@ -3,6 +3,7 @@ import React from 'react';
 import { Text } from 'react-native';
 import { withSpring, withTiming } from 'react-native-reanimated';
 import type { FeedItem } from '../api/zhihu';
+import type { CollectionStarIcon } from '../components/CollectionStarIcon';
 import { CustomContextMenu } from '../components/CustomContextMenu';
 import { FeedCardPreview } from '../components/FeedCardPreview';
 import type { ZhihuContentProps } from '../features/rich-content/types';
@@ -13,6 +14,9 @@ let mockQueryState: {
 };
 const mockContentProps: ZhihuContentProps[] = [];
 const mockUseQuery = jest.fn();
+const mockCollectionStar = jest.fn(
+  (_props: React.ComponentProps<typeof CollectionStarIcon>) => null,
+);
 
 jest.mock('@tanstack/react-query', () => ({
   useQuery: (options: unknown) => {
@@ -58,7 +62,11 @@ jest.mock('../components/BouncyButton', () => ({
   BouncyButton:
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
 }));
-jest.mock('@expo/vector-icons/FontAwesome6', () => () => null);
+jest.mock('../components/CollectionStarIcon', () => ({
+  CollectionStarIcon: (
+    props: React.ComponentProps<typeof CollectionStarIcon>,
+  ) => mockCollectionStar(props),
+}));
 jest.mock('@expo/vector-icons/Ionicons', () => () => null);
 jest.mock('expo-blur', () => ({
   BlurView:
@@ -251,6 +259,8 @@ describe('feed context-menu preview transitions', () => {
             key: 'collection',
             title: '正在收藏',
             icon: 'star',
+            iconFamily: 'collection-star',
+            iconSolid: false,
             disabled: true,
             onPress: action,
           },
@@ -259,6 +269,9 @@ describe('feed context-menu preview transitions', () => {
     );
     const timingCalls = jest.mocked(withTiming).mock.calls.length;
     expect(screen.getByRole('button', { name: '正在收藏' })).toBeDisabled();
+    expect(mockCollectionStar).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filled: false }),
+    );
     await fireEvent.press(screen.getByRole('button', { name: '正在收藏' }));
     expect(action).not.toHaveBeenCalled();
     expect(withTiming).toHaveBeenCalledTimes(timingCalls);

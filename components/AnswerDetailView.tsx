@@ -16,12 +16,18 @@ import Reanimated, {
   useSharedValue,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type AnswerDetail, deleteAnswer, getAnswer } from '@/api/zhihu';
+import {
+  type AnswerDetail,
+  deleteAnswer,
+  getAnswer,
+  getContentCollectionMetadata,
+} from '@/api/zhihu';
 import { getAllContentCollectionStatus } from '@/api/zhihu/collection';
 import { followMember, unfollowMember } from '@/api/zhihu/member';
 import { AnswerEndorsements } from '@/components/AnswerEndorsements';
 import { AnswerLoadingPlaceholder } from '@/components/AnswerLoadingPlaceholder';
 import { BouncyButton } from '@/components/BouncyButton';
+import { CollectionButton } from '@/components/CollectionButton';
 import {
   CONTENT_ACTION_BAR_HEIGHT,
   ContentActionBar,
@@ -662,6 +668,7 @@ export const AnswerDetailView = ({
       {/* Footer Actions */}
       <ContentActionBar
         bottomInset={insets.bottom}
+        shrinkLeading
         leading={
           <SegmentedVoteCapsule
             id={answer?.id ?? ''}
@@ -671,10 +678,19 @@ export const AnswerDetailView = ({
               (answer?.reaction?.relation?.vote === 'UP' ? 1 : 0)
             }
             type="answers"
+            allowCountShrink
           />
         }
         trailing={
           <View className="flex-row items-center bg-transparent">
+            <CollectionButton
+              id={id}
+              type="answer"
+              isCollected={activeCollected}
+              count={getContentCollectionMetadata(answer).favlistsCount}
+              compact={dimensions.width / dimensions.fontScale < 360}
+              disabled={!answer || !isFocused}
+            />
             <ContentActionButton
               accessibilityRole="button"
               accessibilityLabel="评论"

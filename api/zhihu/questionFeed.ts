@@ -1,5 +1,6 @@
 import type { ZhihuPaging } from '@/types/zhihu';
 import type { AnswerDetail } from './answer';
+import { getContentCollectionMetadata } from './contentCollection';
 
 /** The card envelope returned by `/questions/{id}/feeds`. */
 export interface ZhihuAppQuestionFeedCard {
@@ -129,6 +130,7 @@ export function normalizeZhihuAppQuestionFeeds(
 
     const summary = target.big_card_summary?.trim() || '';
     const excerpt = target.excerpt?.trim() || summary;
+    const collection = getContentCollectionMetadata(target);
     const content =
       typeof target.content === 'string' && target.content.trim()
         ? target.content
@@ -145,7 +147,11 @@ export function normalizeZhihuAppQuestionFeeds(
       updated_time: target.updated_time,
       voteup_count: getVoteCount(target),
       comment_count: target.comment_count ?? 0,
-      favlists_count: target.favlists_count ?? 0,
+      favlists_count: collection.favlistsCount,
+      relationship: {
+        ...target.relationship,
+        is_favorited: collection.isCollected,
+      },
       // A summary is intentionally not treated as reusable full answer HTML.
       content_need_truncated:
         typeof target.content === 'string' && target.content.trim()

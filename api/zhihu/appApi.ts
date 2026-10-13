@@ -73,7 +73,7 @@ export const ZHIHU_APP_QUESTION_INCLUDE =
   'read_count,query_info,voteup_count,voting,can_vote';
 
 export const ZHIHU_APP_QUESTION_FEEDS_INCLUDE =
-  'big_card_summary,media_detail,reaction_instruction,is_author,is_thanked,voting,is_favorited,label_info,content_text_length,reactions';
+  'big_card_summary,media_detail,reaction_instruction,is_author,is_thanked,voting,is_favorited,favlists_count,reaction,label_info,content_text_length,reactions';
 
 type QueryValue = string | number | boolean | object | undefined;
 

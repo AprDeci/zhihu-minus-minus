@@ -29,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type FeedItem,
   followMember,
+  getContentCollectionMetadata,
   getContentVoteCount,
   getContentVoteState,
   getMe,
@@ -470,7 +471,7 @@ function UserProfileScreen({ params }: { params: ProfileRouteParams }) {
     queryFn: ({ pageParam = 0 }) => {
       const targetId = (user?.url_token || id) as string;
       const include =
-        'data[*].comment_count,content,voteup_count,favlists_count,created,updated,title,excerpt,reaction,relationship.voting;data[*].author';
+        'data[*].comment_count,content,voteup_count,favlists_count,created,updated,title,excerpt,reaction,relationship.voting,is_favorited;data[*].author';
       return getMemberRelations(targetId, 'articles', {
         limit: 20,
         offset: pageParam,
@@ -947,11 +948,7 @@ function UserProfileScreen({ params }: { params: ProfileRouteParams }) {
         displayItem.comment_count ??
         displayItem.reaction?.statistics?.comments ??
         0,
-      favlistsCount:
-        displayItem.favlists_count ??
-        displayItem.favorite_count ??
-        displayItem.reaction?.statistics?.favorites ??
-        0,
+      ...getContentCollectionMetadata(displayItem),
       voted:
         mappedType === 'videos'
           ? 0

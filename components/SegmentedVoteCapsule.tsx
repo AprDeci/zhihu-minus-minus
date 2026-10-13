@@ -12,6 +12,7 @@ export interface SegmentedVoteCapsuleProps {
   voted?: number;
   type?: VoteContentType;
   showDownvote?: boolean;
+  allowCountShrink?: boolean;
   onVoteChange?: (voted: number, count: number) => void;
   style?: StyleProp<ViewStyle>;
 }
@@ -22,6 +23,7 @@ export function SegmentedVoteCapsule({
   voted: initialVoted = 0,
   type = 'answers',
   showDownvote = true,
+  allowCountShrink = false,
   onVoteChange,
   style,
 }: SegmentedVoteCapsuleProps) {
@@ -66,6 +68,7 @@ export function SegmentedVoteCapsule({
     <View
       style={[
         styles.capsule,
+        allowCountShrink && styles.shrinkable,
         {
           backgroundColor: containerBg,
           borderColor,
@@ -79,6 +82,7 @@ export function SegmentedVoteCapsule({
         voted={currentVoted}
         type={type}
         variant="segmented"
+        allowCountShrink={allowCountShrink}
         onVoteChange={(nextVoted, nextCount) => {
           setCurrentVoted(nextVoted);
           setCurrentCount(nextCount);
@@ -121,5 +125,9 @@ const styles = StyleSheet.create({
     width: StyleSheet.hairlineWidth,
     height: 16,
     alignSelf: 'center',
+  },
+  shrinkable: {
+    flexShrink: 1,
+    minWidth: 0,
   },
 });

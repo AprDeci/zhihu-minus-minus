@@ -13,13 +13,11 @@ import {
   type VoteContentType,
   voteContent,
 } from '@/api/zhihu/voters';
-import { colors } from '@/constants/designTokens';
 import { updateContentInteractionCaches } from '@/utils/contentCache';
 import { showToast } from '@/utils/toast';
 import { getZhihuErrorMessage } from '@/utils/zhihuError';
 import { BouncyButton } from './BouncyButton';
 import { useThemeColor } from './Themed';
-import { useColorScheme } from './useColorScheme';
 import { VoteTriangle } from './VoteTriangle';
 
 export const DownvoteButton = ({
@@ -48,8 +46,7 @@ export const DownvoteButton = ({
   const scale = useSharedValue(1);
   const primaryColor = useThemeColor({}, 'primary');
   const onPrimary = useThemeColor({}, 'onPrimary');
-  const colorScheme = useColorScheme();
-  const mutedColor = colors[colorScheme].iconMuted;
+  const mutedColor = useThemeColor({}, 'textSecondary');
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: FlashList identity changes must reset local reaction state even when the next item has equal initial values.
   React.useEffect(() => {

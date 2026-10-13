@@ -1,6 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { VoteContentType } from '@/api/zhihu/voters';
 import { BouncyButton } from '@/components/BouncyButton';
+import { CollectionButton } from '@/components/CollectionButton';
 import { DownvoteButton } from '@/components/DownvoteButton';
 import { LikeButton } from '@/components/LikeButton';
 import { MoreActionsButton } from '@/components/MoreActionsButton';
@@ -12,6 +13,8 @@ interface FeedCardActionRowProps {
   voted: number;
   engagementType: Exclude<VoteContentType, 'comments'> | null;
   commentCount: number;
+  isCollected?: boolean;
+  collectionCount?: number;
   showDownvote?: boolean;
   onVoteChange?: (voted: number, count: number) => void;
   onComments: () => void;
@@ -26,6 +29,8 @@ export function FeedCardActionRow({
   voted,
   engagementType,
   commentCount,
+  isCollected,
+  collectionCount,
   showDownvote = false,
   onVoteChange,
   onComments,
@@ -55,11 +60,22 @@ export function FeedCardActionRow({
               />
             </View>
           ) : null}
+          {engagementType === 'answers' || engagementType === 'articles' ? (
+            <View className="ml-2 bg-transparent">
+              <CollectionButton
+                id={id}
+                type={engagementType === 'answers' ? 'answer' : 'article'}
+                isCollected={isCollected}
+                count={collectionCount}
+                variant="inline"
+              />
+            </View>
+          ) : null}
           <BouncyButton
             accessibilityRole="button"
             accessibilityLabel={commentAccessibilityLabel}
             onPress={onComments}
-            className="flex-row items-center  bg-transparent ml-4 py-1 px-3 rounded-full"
+            className="flex-row items-center bg-transparent ml-2 py-1 px-3 rounded-full"
           >
             <Ionicons
               name="chatbubble-outline"

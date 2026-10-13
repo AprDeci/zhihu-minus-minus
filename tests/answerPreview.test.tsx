@@ -202,6 +202,27 @@ test('normalizes usable answers and login prompts while skipping broken bodies a
   ).toThrow('回答预览返回结构无效');
 });
 
+test('preview collection metadata preserves false and zero without inventing missing values', () => {
+  const page = normalizeZhihuAnswerPreviewPage(
+    response([
+      {
+        ...answer('known'),
+        reaction: { relation: { faved: false }, statistics: { favorites: 0 } },
+      },
+      { ...answer('unknown'), reaction: undefined },
+    ]),
+  );
+  expect(page.data[0]).toMatchObject({
+    relationship: { is_favorited: false },
+    favlists_count: 0,
+  });
+  const unknown = page.data[1];
+  expect(unknown.type).toBe('answer');
+  if (unknown.type !== 'answer') throw new Error('Expected answer');
+  expect(unknown.relationship.is_favorited).toBeUndefined();
+  expect(unknown.favlists_count).toBeUndefined();
+});
+
 test('retains plural label metadata across structured and clicked plain answer previews', () => {
   const endorsements = [
     {

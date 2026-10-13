@@ -326,6 +326,8 @@ test('keeps the selected plain answer complete and interactive while later answe
       expect.objectContaining({
         id,
         engagementType: 'answers',
+        isCollected: false,
+        collectionCount: mockPlainAnswer(id).favlists_count,
         showDownvote: true,
       }),
     );
@@ -368,6 +370,25 @@ test('keeps the selected plain answer complete and interactive while later answe
     expect.objectContaining({ index: 1 }),
   );
   expect(host.queryByTestId('answer-preview-plain-toggle')).toBeNull();
+});
+
+test('passes each answer collection state and count to its inline actions', async () => {
+  const followingAnswer = structuredAnswer('collected-following-answer');
+  followingAnswer.relationship.is_favorited = true;
+  followingAnswer.favlists_count = 123;
+  mockFollowingAnswers = [followingAnswer];
+  const { element } = createHost();
+  await render(element);
+  expect(mockRenderCardActions).toHaveBeenCalledWith(
+    expect.objectContaining({ id: 'selected-answer', isCollected: false }),
+  );
+  expect(mockRenderCardActions).toHaveBeenCalledWith(
+    expect.objectContaining({
+      id: followingAnswer.id,
+      isCollected: true,
+      collectionCount: 123,
+    }),
+  );
 });
 
 test('refresh resets later answers while keeping the selected answer expanded for both viewport hooks', async () => {

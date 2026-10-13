@@ -5,6 +5,7 @@ import type { AnswerDetail } from '../api/zhihu/answer';
 import ArticleDetail from '../app/article/[id]';
 import PinDetailScreen from '../app/pin/[id]';
 import QuestionDetail from '../app/question/[id]/index';
+import type { CollectionButton } from '../components/CollectionButton';
 import type { ActionSheetOption } from '../components/overlays/ActionSheet';
 import { seedAnswerPreviewEntry } from '../utils/answerPreviewEntry';
 import { seedAnswerDetailFromList } from '../utils/contentCache';
@@ -56,6 +57,9 @@ const mockMutate = jest.fn();
 const mockInvalidateQueries = jest.fn();
 const mockDownvoteButton = jest.fn((_props: { voted?: number }) => null);
 const mockRelationshipNotice = jest.fn((_props: RelationshipNoticeProps) => {});
+const mockCollectionButton = jest.fn(
+  (_props: React.ComponentProps<typeof CollectionButton>) => {},
+);
 const mockAnswer: AnswerDetail = {
   id: '84',
   question: { id: '7', title: '合成问题', type: 'question' },
@@ -71,6 +75,7 @@ const mockAnswer: AnswerDetail = {
   created_time: 0,
   voteup_count: 1,
   comment_count: 2,
+  favlists_count: 21,
   relationship: { is_author: true, is_favorited: true },
 };
 
@@ -276,6 +281,24 @@ jest.mock('../components/ShareMenu', () => {
 jest.mock('../components/StableAvatar', () => ({ StableAvatar: () => null }));
 jest.mock('../components/FollowButton', () => ({ FollowButton: () => null }));
 jest.mock('../components/LikeButton', () => ({ LikeButton: () => null }));
+jest.mock('../components/CollectionButton', () => {
+  const react = jest.requireActual<typeof import('react')>('react');
+  const native =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    CollectionButton: (
+      props: React.ComponentProps<typeof CollectionButton>,
+    ) => {
+      mockCollectionButton(props);
+      return react.createElement(native.Pressable, {
+        accessibilityRole: 'button',
+        accessibilityLabel: '收藏',
+        testID: `collection:${props.type}:${props.id}`,
+        disabled: props.disabled,
+      });
+    },
+  };
+});
 jest.mock('../components/DownvoteButton', () => ({
   DownvoteButton: (props: { voted?: number }) => mockDownvoteButton(props),
 }));
@@ -359,6 +382,7 @@ jest.mock('../store/useSettingsStore', () => {
 });
 jest.mock('../api/client', () => ({ hasAuthenticationCookie: () => false }));
 jest.mock('../api/zhihu', () => ({
+  ...jest.requireActual('../api/zhihu/contentCollection'),
   getArticle: jest.fn(),
   getDailyDetail: jest.fn(),
 }));
@@ -403,6 +427,7 @@ beforeEach(() => {
       title: '合成文章',
       author: mockAnswer.author,
       content: '<p>正文</p>',
+      favlists_count: 0,
     },
     'pin-detail': {
       id: '7',
@@ -466,6 +491,20 @@ test.each([
 
 test('both article more buttons directly open the same article menu', async () => {
   const host = await render(<ArticleDetail />);
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      id: '7',
+      type: 'article',
+      isCollected: false,
+      count: 0,
+    }),
+  );
+  expect(
+    host
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => label === '收藏' || label === '评论'),
+  ).toEqual(['收藏', '评论']);
   const buttons = host.getAllByRole('button', { name: '更多操作' });
   expect(buttons).toHaveLength(2);
   for (const button of buttons) {
@@ -502,6 +541,8 @@ test.each([
     share_url: shareUrl,
   };
   const host = await render(<ArticleDetail />);
+  expect(host.queryByRole('button', { name: '收藏' })).toBeNull();
+  expect(mockCollectionButton).not.toHaveBeenCalled();
   await pressButton(host.getByRole('button', { name: '更多操作' }));
   expect(host.getByText('menu:daily:7')).toBeTruthy();
   expect(mockMenuProps.data?.url).toBe(
@@ -512,6 +553,8 @@ test.each([
 
 test('pin header and bottom more buttons open the same pin menu', async () => {
   const host = await render(<PinDetailScreen />);
+  expect(host.queryByRole('button', { name: '收藏' })).toBeNull();
+  expect(mockCollectionButton).not.toHaveBeenCalled();
   const buttons = host.getAllByRole('button', { name: '更多操作' });
   expect(buttons).toHaveLength(2);
   for (const button of buttons) {
@@ -580,6 +623,12 @@ test.each([
 
   mockQueryData[query] = { ...original, id: '8', title: '新的合成内容' };
   await host.rerender(<Screen />);
+  if (type === 'article') {
+    expect(mockCollectionButton).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: '8', type: 'article' }),
+    );
+    expect(host.queryByTestId('collection:article:7')).toBeNull();
+  }
   expect(host.queryByText(`menu:${type}:8`)).toBeNull();
   expect(mockMenuProps.visible).toBe(false);
 
@@ -609,6 +658,19 @@ test('switching between an article and daily story with the same ID does not reu
 test('question and answer more entries target distinct content and preserve author actions', async () => {
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   const host = await render(<QuestionDetail />);
+  expect(mockCollectionButton).toHaveBeenLastCalledWith({
+    id: '84',
+    type: 'answer',
+    isCollected: true,
+    count: 21,
+    variant: 'inline',
+  });
+  expect(
+    host
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => label === '收藏' || label === '2 条回答评论'),
+  ).toEqual(['收藏', '2 条回答评论']);
   await pressButton(host.getByRole('button', { name: '阅读 合成作者 的回答' }));
   expect(seedAnswerDetailFromList).toHaveBeenCalledWith(
     expect.any(Object),

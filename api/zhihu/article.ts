@@ -33,7 +33,10 @@ export const getArticle = async (
   id: string | number,
 ): Promise<ZhihuArticle> => {
   const res = await apiClient.get<ZhihuArticle>(`/articles/${id}`, {
-    params: { include: 'author.is_following,endorsements' },
+    params: {
+      include:
+        'author.is_following,endorsements,favlists_count,relationship.is_favorited,reaction',
+    },
   });
   return res.data;
 };

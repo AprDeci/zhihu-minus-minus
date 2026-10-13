@@ -9,6 +9,7 @@ import {
 import type { ComponentProps, PropsWithChildren } from 'react';
 import { Share } from 'react-native';
 import { getAllContentCollectionStatus } from '../api/zhihu/collection';
+import type { CollectionStarIcon } from '../components/CollectionStarIcon';
 import { ShareMenu } from '../components/ShareMenu';
 import { useContentActions } from '../hooks/useContentActions';
 import { useCollectionStore } from '../store/useCollectionStore';
@@ -24,6 +25,9 @@ let mockAuthSessionVersion = 0;
 const mockToggleCollect = jest.fn();
 const mockRequestClose = jest.fn();
 let mockFinishClose: (() => void) | undefined;
+const mockCollectionStar = jest.fn(
+  (_props: ComponentProps<typeof CollectionStarIcon>) => null,
+);
 
 jest.mock('../api/client', () => ({
   hasAuthenticationCookie: (cookies: string | null) =>
@@ -75,7 +79,10 @@ jest.mock('../components/BouncyButton', () => ({
     jest.requireActual<typeof import('react-native')>('react-native').Pressable,
 }));
 jest.mock('@expo/vector-icons/Ionicons', () => () => null);
-jest.mock('@expo/vector-icons/FontAwesome6', () => () => null);
+jest.mock('../components/CollectionStarIcon', () => ({
+  CollectionStarIcon: (props: ComponentProps<typeof CollectionStarIcon>) =>
+    mockCollectionStar(props),
+}));
 jest.mock('../utils/haptics', () => ({
   ImpactFeedbackStyle: { Medium: 'medium' },
   impactAsync: jest.fn(async () => undefined),
@@ -238,11 +245,17 @@ test.each([
 test('honors server-known fallback, newer store state and pending mutation', async () => {
   const host = await setup({ data: { ...knownData, isCollected: true } });
   expect(host.getByRole('button', { name: '取消收藏' })).toBeTruthy();
+  expect(mockCollectionStar).toHaveBeenLastCalledWith(
+    expect.objectContaining({ filled: true }),
+  );
   expect(getAllContentCollectionStatus).not.toHaveBeenCalled();
   await act(() =>
     useCollectionStore.getState().setCollectedStatus('42', false),
   );
   const collect = host.getByRole('button', { name: '收藏' });
+  expect(mockCollectionStar).toHaveBeenLastCalledWith(
+    expect.objectContaining({ filled: false }),
+  );
   mockCollectionPending = true;
   await host.update({});
   expect(host.getByRole('button', { name: '收藏' })).toBeDisabled();

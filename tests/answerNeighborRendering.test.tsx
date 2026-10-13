@@ -4,10 +4,11 @@ import {
   QueryClientProvider,
 } from '@tanstack/react-query';
 import { act, render, waitFor } from '@testing-library/react-native';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { type AnswerDetail, getAnswer } from '../api/zhihu';
 import { getAllContentCollectionStatus } from '../api/zhihu/collection';
 import { AnswerDetailView } from '../components/AnswerDetailView';
+import type { CollectionButton } from '../components/CollectionButton';
 import type { RichContentLoadingPhase } from '../features/rich-content';
 import {
   getAnswerEndorsementsKey,
@@ -72,11 +73,15 @@ const mockBodyMount = jest.fn();
 const mockBodyUnmount = jest.fn();
 const mockRelationshipNotice = jest.fn((_props: RelationshipNoticeProps) => {});
 const mockAnswerEndorsements = jest.fn((_props: AnswerEndorsementsProps) => {});
+const mockCollectionButton = jest.fn(
+  (_props: ComponentProps<typeof CollectionButton>) => {},
+);
 let mockSessionVersion = 1;
 let mockLayoutReady: () => void;
 let mockContentLoadingPhase: RichContentLoadingPhase | null = null;
 
 jest.mock('../api/zhihu', () => ({
+  ...jest.requireActual('../api/zhihu/contentCollection'),
   getAnswer: jest.fn(),
   deleteAnswer: jest.fn(),
 }));
@@ -173,6 +178,22 @@ jest.mock('../components/DownvoteButton', () => ({
 }));
 jest.mock('../components/FollowButton', () => ({ FollowButton: () => null }));
 jest.mock('../components/LikeButton', () => ({ LikeButton: () => null }));
+jest.mock('../components/CollectionButton', () => {
+  const react = jest.requireActual<typeof import('react')>('react');
+  const native =
+    jest.requireActual<typeof import('react-native')>('react-native');
+  return {
+    CollectionButton: (props: ComponentProps<typeof CollectionButton>) => {
+      mockCollectionButton(props);
+      return react.createElement(native.Pressable, {
+        accessibilityRole: 'button',
+        accessibilityLabel: '收藏',
+        testID: `collection:${props.type}:${props.id}`,
+        disabled: props.disabled,
+      });
+    },
+  };
+});
 jest.mock('../components/MoreActionsButton', () => ({
   MoreActionsButton: () => null,
 }));
@@ -408,6 +429,14 @@ test('mounts a cached neighboring body before focus without starting detail, col
   expect(mockBodyMount).toHaveBeenCalledTimes(1);
   expect(getAnswer).not.toHaveBeenCalled();
   expect(getAllContentCollectionStatus).not.toHaveBeenCalled();
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      id: answer.id,
+      type: 'answer',
+      disabled: true,
+    }),
+  );
+  expect(host.getByRole('button', { name: '收藏' })).toBeDisabled();
   expect(mockRelationshipNotice).toHaveBeenLastCalledWith({
     contentType: 'answer',
     contentId: answer.id,
@@ -420,6 +449,31 @@ test('mounts a cached neighboring body before focus without starting detail, col
       .map((node) => node.props.testID),
   ).toEqual(['content-relationship-notice', 'answer-body']);
   expectInactiveReading();
+});
+
+test('an active answer enables collection immediately before comments using its collection state', async () => {
+  const cachedAnswer = {
+    ...answer,
+    favlists_count: 123,
+    relationship: { ...answer.relationship, is_favorited: true },
+  };
+  const host = await renderAnswer({ cachedAnswer, isFocused: true });
+  expect(mockCollectionButton).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      id: answer.id,
+      type: 'answer',
+      isCollected: true,
+      count: 123,
+      disabled: false,
+    }),
+  );
+  expect(host.getByRole('button', { name: '收藏' })).toBeEnabled();
+  expect(
+    host
+      .getAllByRole('button')
+      .map((button) => button.props.accessibilityLabel)
+      .filter((label) => label === '收藏' || label === '评论'),
+  ).toEqual(['收藏', '评论']);
 });
 
 test('shows cached answer endorsements above relationship and body while disabling inactive actions', async () => {

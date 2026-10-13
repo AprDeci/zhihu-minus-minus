@@ -10,6 +10,7 @@ export * from './chat';
 export * from './collection';
 export * from './column';
 export * from './comment';
+export * from './contentCollection';
 export * from './daily';
 export * from './feed';
 export * from './following';

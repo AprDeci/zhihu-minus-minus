@@ -249,6 +249,38 @@ test('normalizes mixed creations without losing exact pin identity or member fal
   ).toHaveLength(2);
 });
 
+test('creation cards preserve API collection state and count without inventing unavailable values', () => {
+  const collected: ZhihuMemberActivity = {
+    target: {
+      ...activity('collected-answer').target,
+      reaction: {
+        relation: { faved: true },
+        statistics: { favorites: 6 },
+      },
+    },
+  };
+  expect(toUserCreationFeedItem(collected, member)).toMatchObject({
+    isCollected: true,
+    favlistsCount: 6,
+  });
+  expect(
+    toUserCreationFeedItem(
+      {
+        target: {
+          ...activity('uncollected-answer').target,
+          relationship: { is_favorited: false },
+          favlists_count: 0,
+          favorite_count: 4,
+        },
+      },
+      member,
+    ),
+  ).toMatchObject({ isCollected: false, favlistsCount: 0 });
+  const unknown = toUserCreationFeedItem(activity('unknown-answer'), member);
+  expect(unknown?.isCollected).toBeUndefined();
+  expect(unknown?.favlistsCount).toBeUndefined();
+});
+
 test.each([
   ['video', 'lens'],
   ['videos', 'lens'],
