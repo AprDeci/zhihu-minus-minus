@@ -49,7 +49,7 @@
         <b>关注更新</b><br />
       </td>
       <td align="center" valign="top">
-        <img src="./screenshot/v0.0.4/photo_2026-03-12_23-31-25.jpg" width="160" style="border-radius: 16px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
+        <img src="./screenshot/v0.9.0/photo_2026-10-13 15.16.38.jpeg" width="160" style="border-radius: 16px; border: 1px solid #eee; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" />
         <br /><br />
         <b>段落交互</b><br />
       </td>
@@ -179,4 +179,4 @@ npm run check
 </a>
 
 ---
-**Version**: v0.8.1 | **Last Updated**: 2026-10-09
+**Version**: v0.9.0 | **Last Updated**: 2026-10-13

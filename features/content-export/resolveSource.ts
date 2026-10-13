@@ -187,8 +187,8 @@ async function answerBody(
         (item) => item.type === 'answer' && item.id === target.id,
       );
       if (answer?.type === 'answer') {
-        if (answer.canCopy === false)
-          throw new ContentExportError('作者已限制复制，此内容无法导出');
+        // if (answer.canCopy === false)
+        // throw new ContentExportError('作者已限制复制，此内容无法导出');
         initial = answer.structuredContent;
       }
     } catch (error: unknown) {
