@@ -20,6 +20,7 @@ import {
   GUEST_BOOTSTRAP_TIMEOUT_MS,
   useGuestBootstrap,
 } from '../hooks/useGuestBootstrap';
+import { resolveLocalAccountKey } from '../utils/localAccount';
 
 let mockQueryClient: QueryClient;
 let mockSessionVersion = 1;
@@ -279,6 +280,62 @@ test('later cookie success retries only active failed guest feeds', async () => 
     expect(inactiveGuest).toHaveBeenCalledTimes(1);
   } finally {
     for (const unsubscribe of unsubscribers) unsubscribe();
+  }
+});
+
+test.each([
+  { id: 'expired-account', url_token: 'expired-token' },
+  { url_token: 'expired-token' },
+])('recovers a guest feed after authentication expires with retained profile %j', async (retainedProfile) => {
+  mockAuthCookie = 'synthetic-authenticated-cookie';
+  const accountKey = [
+    'zhihu-feed',
+    resolveLocalAccountKey(retainedProfile, true),
+    'recommend',
+  ];
+  mockQueryClient.setQueryData(accountKey, 'private-account-feed');
+  const host = await renderHook(() => useGuestBootstrap(!mockAuthCookie));
+  await act(() => {
+    // A rejected session refresh clears authentication but retains profile data.
+    mockAuthCookie = null;
+    mockSessionVersion += 1;
+  });
+  await host.rerender(undefined);
+  await act(() => host.result.current.attempt?.complete(false));
+
+  const guestKey = [
+    'zhihu-feed',
+    resolveLocalAccountKey(retainedProfile, Boolean(mockAuthCookie)),
+    'recommend',
+  ];
+  const queryFn = jest
+    .fn()
+    .mockRejectedValueOnce(new Error('Missing anonymous cookie'))
+    .mockResolvedValue('recovered-guest-feed');
+  await expect(
+    mockQueryClient.fetchQuery({ queryKey: guestKey, queryFn }),
+  ).rejects.toThrow('Missing anonymous cookie');
+  const observer = new QueryObserver(mockQueryClient, {
+    queryKey: guestKey,
+    queryFn,
+    retryOnMount: false,
+    staleTime: Infinity,
+  });
+  const unsubscribe = observer.subscribe(() => {});
+  try {
+    getCookies.mockResolvedValueOnce(guestCookies);
+    await act(() => {
+      onlineManager.setOnline(false);
+      onlineManager.setOnline(true);
+    });
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(guestKey[1]).toBe('guest');
+    expect(mockQueryClient.getQueryData(guestKey)).toBe('recovered-guest-feed');
+    expect(mockQueryClient.getQueryData(accountKey)).toBe(
+      'private-account-feed',
+    );
+  } finally {
+    unsubscribe();
   }
 });
 
