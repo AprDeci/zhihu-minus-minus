@@ -6,8 +6,10 @@ import {
   Alert,
   type ScrollView as NativeScrollView,
   type View as NativeView,
+  View as RawView,
   useWindowDimensions,
 } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import Reanimated, {
   runOnJS,
   SharedTransition,
@@ -53,6 +55,7 @@ import {
   type RichContentLoadingPhase,
   ZhihuContent,
 } from '@/features/rich-content';
+import { useDoubleTapVote } from '@/hooks/useDoubleTapVote';
 import { useOptimisticToggle } from '@/hooks/useOptimisticToggle';
 import { useReadingContentMeasurement } from '@/hooks/useReadingContentMeasurement';
 import { useReadingProgress } from '@/hooks/useReadingProgress';
@@ -427,6 +430,16 @@ export const AnswerDetailView = ({
     }
   }, [collectionStatus, id, isFetchedAfterMount, setCollectedStatus]);
 
+  const { gesture: doubleTapVote } = useDoubleTapVote({
+    id,
+    type: 'answers',
+    voted:
+      answer?.relationship?.voting ??
+      (answer?.reaction?.relation?.vote === 'UP' ? 1 : 0),
+    count: answer?.voteup_count ?? 0,
+    enabled: isFocused && Boolean(answer),
+  });
+
   const goToProfile = () => {
     const token = answer?.author?.url_token || answer?.author?.id;
     if (token) router.push(`/user/${token}`);
@@ -592,58 +605,60 @@ export const AnswerDetailView = ({
             </BouncyButton>
           </View>
         ) : (
-          <View className="px-5 pb-2 bg-transparent">
-            <AnswerEndorsements
-              endorsements={endorsements}
-              enabled={isFocused}
-            />
-            <ContentRelationshipNotice
-              contentType="answer"
-              contentId={id}
-              enabled={isFocused && Boolean(answer)}
-              voteCount={answer?.voteup_count}
-            />
-            <ZhihuContent
-              content={answer?.content || ''}
-              segmentInfos={answer?.segment_infos}
-              linkCardInfo={answer?.link_card_info}
-              objectId={id}
-              type="answer"
-              onRefresh={refetch}
-              renderPlaceholder={renderContentPlaceholder}
-              onLayoutReady={handleContentLayoutReady}
-            />
-            {/* Meta info */}
-            <View
-              style={{
-                marginTop: 20,
-                paddingTop: 12,
-              }}
-              className="bg-transparent"
-            >
-              <Text
+          <GestureDetector gesture={doubleTapVote}>
+            <RawView collapsable={false} className="px-5 pb-2 bg-transparent">
+              <AnswerEndorsements
+                endorsements={endorsements}
+                enabled={isFocused}
+              />
+              <ContentRelationshipNotice
+                contentType="answer"
+                contentId={id}
+                enabled={isFocused && Boolean(answer)}
+                voteCount={answer?.voteup_count}
+              />
+              <ZhihuContent
+                content={answer?.content || ''}
+                segmentInfos={answer?.segment_infos}
+                linkCardInfo={answer?.link_card_info}
+                objectId={id}
+                type="answer"
+                onRefresh={refetch}
+                renderPlaceholder={renderContentPlaceholder}
+                onLayoutReady={handleContentLayoutReady}
+              />
+              {/* Meta info */}
+              <View
                 style={{
-                  fontSize: 12,
-                  color: Colors[colorScheme].textSecondary,
-                  opacity: 0.65,
+                  marginTop: 20,
+                  paddingTop: 12,
                 }}
+                className="bg-transparent"
               >
-                {[
-                  answer?.created_time
-                    ? `发布于 ${formatDate(answer.created_time)}`
-                    : answer?.created_time_name
-                      ? `发布于 ${answer.created_time_name}`
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: Colors[colorScheme].textSecondary,
+                    opacity: 0.65,
+                  }}
+                >
+                  {[
+                    answer?.created_time
+                      ? `发布于 ${formatDate(answer.created_time)}`
+                      : answer?.created_time_name
+                        ? `发布于 ${answer.created_time_name}`
+                        : null,
+                    answer?.updated_time
+                      ? `编辑于 ${formatDate(answer.updated_time)}`
                       : null,
-                  answer?.updated_time
-                    ? `编辑于 ${formatDate(answer.updated_time)}`
-                    : null,
-                  answer?.ip_info ? answer.ip_info : null,
-                ]
-                  .filter(Boolean)
-                  .join('  ·  ')}
-              </Text>
-            </View>
-          </View>
+                    answer?.ip_info ? answer.ip_info : null,
+                  ]
+                    .filter(Boolean)
+                    .join('  ·  ')}
+                </Text>
+              </View>
+            </RawView>
+          </GestureDetector>
         )}
       </Reanimated.ScrollView>
 

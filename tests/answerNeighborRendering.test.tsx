@@ -284,13 +284,24 @@ jest.mock('react-native-reanimated', () => {
     jest.requireActual<typeof import('react-native')>('react-native');
   return {
     __esModule: true,
-    default: { View: native.View, ScrollView: native.ScrollView },
+    default: {
+      View: native.View,
+      ScrollView: native.ScrollView,
+      createAnimatedComponent: (component: unknown) => component,
+    },
     SharedTransition: { duration: () => ({}) },
     useSharedValue: <T,>(value: T) => react.useRef({ value }).current,
     useAnimatedScrollHandler: () => jest.fn(),
+    // Gesture-handler's reanimated wrapper probes these two entry points.
+    useEvent: () => jest.fn(),
+    setGestureState: () => {},
     runOnJS: <T,>(callback: T) => callback,
   };
 });
+jest.mock('react-native-gesture-handler', () => ({
+  ...jest.requireActual('react-native-gesture-handler'),
+  GestureDetector: ({ children }: { children: ReactNode }) => children,
+}));
 
 const answer: AnswerDetail = {
   id: '84',

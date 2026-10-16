@@ -2,7 +2,8 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { useQuery } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect } from 'react';
-import { ActivityIndicator, ScrollView } from 'react-native';
+import { ActivityIndicator, View as RawView, ScrollView } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { recordReadHistory } from '@/api/zhihu/history';
 import { followMember, unfollowMember } from '@/api/zhihu/member';
@@ -28,6 +29,7 @@ import { Text, ThemedIcon, useThemeColor, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { RICH_CONTENT_STALE_TIME, ZhihuContent } from '@/features/rich-content';
+import { useDoubleTapVote } from '@/hooks/useDoubleTapVote';
 import { useOptimisticToggle } from '@/hooks/useOptimisticToggle';
 import { useReadingProgress } from '@/hooks/useReadingProgress';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -117,6 +119,14 @@ export default function PinDetailScreen() {
     const token = pin?.author?.url_token || pin?.author?.id;
     if (token) router.push(`/user/${token}`);
   }, [pin?.author, router]);
+
+  const { gesture: doubleTapVote } = useDoubleTapVote({
+    id: String(id ?? ''),
+    type: 'pins',
+    voted: pinVoteState,
+    count: pinVoteCount,
+    enabled: Boolean(id) && Boolean(pin),
+  });
 
   if (isLoading && !pin)
     return (
@@ -240,32 +250,36 @@ export default function PinDetailScreen() {
         </View>
 
         {/* 想法内容 */}
-        <View className="px-5 bg-transparent">
-          <ContentRelationshipNotice
-            contentType="pin"
-            contentId={String(id)}
-            voteCount={pinVoteCount}
-          />
-          <ZhihuContent
-            contentArray={pin?.content}
-            objectId={id as string}
-            type="pin"
-            onRefresh={refetch}
-          />
-          {poll ? (
+        <GestureDetector gesture={doubleTapVote}>
+          <RawView collapsable={false} className="px-5 bg-transparent">
+            <ContentRelationshipNotice
+              contentType="pin"
+              contentId={String(id)}
+              voteCount={pinVoteCount}
+            />
+            <ZhihuContent
+              contentArray={pin?.content}
+              objectId={id as string}
+              type="pin"
+              onRefresh={refetch}
+            />
+          </RawView>
+        </GestureDetector>
+        {poll ? (
+          <RawView className="px-5 bg-transparent">
             <PinPollCard
               key={`${id}:${poll.id}`}
               poll={poll}
               contentId={String(id)}
             />
-          ) : null}
-          <Text
-            type="secondary"
-            className="text-[#bbb] text-[13px] mt-[30px] italic pb-5"
-          >
-            发布于 {pin?.created ? formatDateTime(pin.created) : '不久前'}{' '}
-          </Text>
-        </View>
+          </RawView>
+        ) : null}
+        <Text
+          type="secondary"
+          className="text-[#bbb] text-[13px] mt-[30px] italic pb-5 px-5"
+        >
+          发布于 {pin?.created ? formatDateTime(pin.created) : '不久前'}{' '}
+        </Text>
       </ScrollView>
 
       <ReadingProgressNotice
