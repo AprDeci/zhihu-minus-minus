@@ -2,11 +2,15 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react-native';
 import type { PropsWithChildren } from 'react';
 import { voteContent } from '../api/zhihu';
-import { useDoubleTapVote } from '../hooks/useDoubleTapVote';
+import { useDoubleTapAction } from '../hooks/useDoubleTapAction';
 import { updateContentInteractionCaches } from '../utils/contentCache';
 import { impactAsync } from '../utils/haptics';
 import { showToast } from '../utils/toast';
 
+const mockPush = jest.fn();
+jest.mock('expo-router', () => ({
+  useRouter: () => ({ push: mockPush }),
+}));
 jest.mock('../api/zhihu', () => ({
   voteContent: jest.fn(),
   getVoteSuccessMessage: jest.fn(() => '已赞同'),
@@ -23,6 +27,19 @@ jest.mock('../utils/zhihuError', () => ({
   getZhihuErrorMessage: (error: unknown) =>
     error instanceof Error ? error.message : '失败',
 }));
+let mockDoubleTapAction: string | undefined;
+jest.mock('../store/useSettingsStore', () => ({
+  useSettingsStore: (
+    selector: (state: { doubleTapAction?: string }) => unknown,
+  ) => selector({ doubleTapAction: mockDoubleTapAction }),
+}));
+jest.mock('../store/useDoubleTapSetupStore', () => ({
+  useDoubleTapSetupStore: (
+    selector: (state: { show: () => void }) => unknown,
+  ) => selector({ show: mockShowSetup }),
+}));
+
+const mockShowSetup = jest.fn();
 
 const voteContentMock = jest.mocked(voteContent);
 const updateCachesMock = jest.mocked(updateContentInteractionCaches);
@@ -37,21 +54,57 @@ function wrapper({ children }: PropsWithChildren) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockDoubleTapAction = undefined;
   queryClient = new QueryClient();
 });
 
-function setup(options: Partial<Parameters<typeof useDoubleTapVote>[0]> = {}) {
+function setup(
+  options: Partial<Parameters<typeof useDoubleTapAction>[0]> = {},
+) {
   return renderHook(
-    (props: Parameters<typeof useDoubleTapVote>[0]) => useDoubleTapVote(props),
+    (props: Parameters<typeof useDoubleTapAction>[0]) =>
+      useDoubleTapAction(props),
     {
-      initialProps: { id: 'answer-1', type: 'answers', ...options },
+      initialProps: {
+        id: 'answer-1',
+        type: 'answers' as const,
+        commentType: 'answer' as const,
+        ...options,
+      },
       wrapper,
     },
   );
 }
+
 const endEvent = { state: 5 } as never;
 
-test('double tap upvotes through the shared interaction cache', async () => {
+test('the first double tap opens the setup sheet without voting or navigating', async () => {
+  const host = await setup({ voted: 0, count: 7 });
+
+  await act(() => host.result.current.gesture.handlers.onEnd?.(endEvent, true));
+
+  expect(mockShowSetup).toHaveBeenCalledTimes(1);
+  expect(voteContentMock).not.toHaveBeenCalled();
+  expect(mockPush).not.toHaveBeenCalled();
+  expect(updateCachesMock).not.toHaveBeenCalled();
+  await host.unmount();
+});
+
+test('the off action stays completely silent', async () => {
+  mockDoubleTapAction = 'off';
+  const host = await setup({ voted: 0, count: 7 });
+
+  await act(() => host.result.current.gesture.handlers.onEnd?.(endEvent, true));
+
+  expect(impactAsync).not.toHaveBeenCalled();
+  expect(mockShowSetup).not.toHaveBeenCalled();
+  expect(voteContentMock).not.toHaveBeenCalled();
+  expect(mockPush).not.toHaveBeenCalled();
+  await host.unmount();
+});
+
+test('the like action upvotes through the shared interaction cache', async () => {
+  mockDoubleTapAction = 'like';
   voteContentMock.mockResolvedValue({ voted: 1, voteCount: 8 });
   const host = await setup({ voted: 0, count: 7 });
 
@@ -69,7 +122,8 @@ test('double tap upvotes through the shared interaction cache', async () => {
   await host.unmount();
 });
 
-test('falls back to local count when the API omits one', async () => {
+test('like falls back to the local count when the API omits one', async () => {
+  mockDoubleTapAction = 'like';
   voteContentMock.mockResolvedValue({ voted: 1 });
   const host = await setup({ voted: 0, count: 7 });
 
@@ -82,7 +136,8 @@ test('falls back to local count when the API omits one', async () => {
   await host.unmount();
 });
 
-test('double tap on already upvoted content only gives feedback', async () => {
+test('liking already-liked content only gives feedback', async () => {
+  mockDoubleTapAction = 'like';
   const host = await setup({ voted: 1, count: 8 });
 
   await act(() => host.result.current.gesture.handlers.onEnd?.(endEvent, true));
@@ -94,7 +149,19 @@ test('double tap on already upvoted content only gives feedback', async () => {
   await host.unmount();
 });
 
-test('a failed or cancelled tap never upvotes', async () => {
+test('the comments action routes to the owning content comment list', async () => {
+  mockDoubleTapAction = 'comments';
+  const host = await setup({ commentType: 'pin', id: 'pin-9' });
+
+  await act(() => host.result.current.gesture.handlers.onEnd?.(endEvent, true));
+
+  expect(mockPush).toHaveBeenCalledWith('/comments/pin-9?type=pin');
+  expect(voteContentMock).not.toHaveBeenCalled();
+  await host.unmount();
+});
+
+test('a failed or cancelled tap never runs the action', async () => {
+  mockDoubleTapAction = 'like';
   const host = await setup({ voted: 0, count: 7 });
 
   await act(() =>
@@ -102,10 +169,12 @@ test('a failed or cancelled tap never upvotes', async () => {
   );
 
   expect(voteContentMock).not.toHaveBeenCalled();
+  expect(mockShowSetup).not.toHaveBeenCalled();
   await host.unmount();
 });
 
 test('a rejected vote reports the error and leaves the cache untouched', async () => {
+  mockDoubleTapAction = 'like';
   voteContentMock.mockRejectedValue(new Error('需要登录'));
   const host = await setup({ voted: 0, count: 7 });
 
@@ -116,7 +185,8 @@ test('a rejected vote reports the error and leaves the cache untouched', async (
   await host.unmount();
 });
 
-test('rapid double taps collapse into a single request', async () => {
+test('rapid like double taps collapse into a single request', async () => {
+  mockDoubleTapAction = 'like';
   let resolveVote: (value: { voted: 1; voteCount: number }) => void = () => {};
   voteContentMock.mockReturnValue(
     new Promise((resolve) => {
@@ -136,10 +206,31 @@ test('rapid double taps collapse into a single request', async () => {
   await host.unmount();
 });
 
-test('the disabled gesture keeps its double-tap config without voting', async () => {
+test('the disabled gesture keeps its double-tap config without acting', async () => {
+  mockDoubleTapAction = 'like';
   const host = await setup({ voted: 0, count: 7, enabled: false });
 
   expect(host.result.current.gesture.config.numberOfTaps).toBe(2);
   expect(host.result.current.gesture.config.enabled).toBe(false);
+  await host.unmount();
+});
+
+test('switching the setting changes the next action without a rebuild', async () => {
+  const host = await setup({ voted: 0, count: 7 });
+
+  await act(() => host.result.current.gesture.handlers.onEnd?.(endEvent, true));
+  expect(mockShowSetup).toHaveBeenCalledTimes(1);
+
+  mockDoubleTapAction = 'comments';
+  await host.rerender({
+    id: 'answer-1',
+    type: 'answers',
+    commentType: 'answer',
+    voted: 0,
+    count: 7,
+  });
+  await act(() => host.result.current.gesture.handlers.onEnd?.(endEvent, true));
+
+  expect(mockPush).toHaveBeenCalledWith('/comments/answer-1?type=answer');
   await host.unmount();
 });

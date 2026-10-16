@@ -48,7 +48,7 @@ import { Text, ThemedIcon, useThemeColor, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { RICH_CONTENT_STALE_TIME, ZhihuContent } from '@/features/rich-content';
-import { useDoubleTapVote } from '@/hooks/useDoubleTapVote';
+import { useDoubleTapAction } from '@/hooks/useDoubleTapAction';
 import { useOptimisticToggle } from '@/hooks/useOptimisticToggle';
 import { useReadingProgress } from '@/hooks/useReadingProgress';
 import { useCollectionStore } from '@/store/useCollectionStore';
@@ -216,9 +216,10 @@ export default function ArticleDetail() {
     enabled: !!id && !isDaily,
   });
 
-  const { gesture: doubleTapVote } = useDoubleTapVote({
+  const { gesture: doubleTapVote } = useDoubleTapAction({
     id: String(id ?? ''),
     type: 'articles',
+    commentType: 'article',
     voted: zhihuData?.relationship?.voting ?? 0,
     count: zhihuData?.voteup_count ?? 0,
     enabled: Boolean(id) && !isDaily && Boolean(zhihuData),
