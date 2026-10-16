@@ -455,213 +455,225 @@ export const AnswerDetailView = ({
 
   return (
     <View className="flex-1">
-      <Reanimated.ScrollView
-        ref={scrollViewRef}
-        innerViewRef={
-          // RN forwards a nullable React ref, but its public prop type omits null.
-          contentViewRef as React.RefObject<NativeView>
-        }
-        className="flex-1"
-        style={{
-          backgroundColor: Colors[colorScheme].backgroundSecondary,
-        }}
-        scrollEventThrottle={16}
-        showsVerticalScrollIndicator={false}
-        onScroll={handleScroll}
-        onLayout={(event) => {
-          viewportHeight.value = event.nativeEvent.layout.height;
-          readingProgress.onLayout(event);
-        }}
-        onContentSizeChange={handleContentSizeChange}
-        onScrollEndDrag={(event) => {
-          if (!isCurrentFocus()) return;
-          scrollY.value = event.nativeEvent.contentOffset.y;
-          updateHeaderProgress(event.nativeEvent.contentOffset.y);
-          handleTrackedScroll();
-          readingProgress.commitProgress();
-        }}
-        onMomentumScrollEnd={(event) => {
-          if (!isCurrentFocus()) return;
-          scrollY.value = event.nativeEvent.contentOffset.y;
-          updateHeaderProgress(event.nativeEvent.contentOffset.y);
-          handleTrackedScroll();
-          readingProgress.commitProgress();
-        }}
-        contentContainerStyle={{
-          paddingTop: navigationHeight + 14,
-          paddingBottom: CONTENT_ACTION_BAR_HEIGHT + 36 + actionBarBottom,
-        }}
-      >
-        <View
-          className="px-5 bg-transparent"
-          onLayout={({ nativeEvent: { layout } }) => {
-            const offset = Math.max(
-              1,
-              layout.y + layout.height - navigationHeight,
-            );
-            collapseOffset.value = offset;
-            onHeaderLayout?.(offset);
-            if (focusedRef.current.isFocused)
-              updateHeaderProgress(scrollY.value);
-          }}
-        >
-          <BouncyButton
-            accessibilityRole="button"
-            accessibilityLabel="查看问题"
-            onPress={() => {
-              const target = answer?.question?.id || questionId;
-              if (target) router.push(`/question/${target}`);
+      <GestureDetector gesture={doubleTapVote}>
+        <RawView collapsable={false} style={{ flex: 1 }}>
+          <Reanimated.ScrollView
+            ref={scrollViewRef}
+            innerViewRef={
+              // RN forwards a nullable React ref, but its public prop type omits null.
+              contentViewRef as React.RefObject<NativeView>
+            }
+            className="flex-1"
+            style={{
+              backgroundColor: Colors[colorScheme].backgroundSecondary,
             }}
-            className="bg-transparent"
+            scrollEventThrottle={16}
+            showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            onLayout={(event) => {
+              viewportHeight.value = event.nativeEvent.layout.height;
+              readingProgress.onLayout(event);
+            }}
+            onContentSizeChange={handleContentSizeChange}
+            onScrollEndDrag={(event) => {
+              if (!isCurrentFocus()) return;
+              scrollY.value = event.nativeEvent.contentOffset.y;
+              updateHeaderProgress(event.nativeEvent.contentOffset.y);
+              handleTrackedScroll();
+              readingProgress.commitProgress();
+            }}
+            onMomentumScrollEnd={(event) => {
+              if (!isCurrentFocus()) return;
+              scrollY.value = event.nativeEvent.contentOffset.y;
+              updateHeaderProgress(event.nativeEvent.contentOffset.y);
+              handleTrackedScroll();
+              readingProgress.commitProgress();
+            }}
+            contentContainerStyle={{
+              paddingTop: navigationHeight + 14,
+              paddingBottom: CONTENT_ACTION_BAR_HEIGHT + 36 + actionBarBottom,
+            }}
           >
-            <View className="flex-row items-center gap-1 mb-2 bg-transparent">
-              <Text type="secondary" style={{ fontSize: 12, lineHeight: 18 }}>
-                来自问题
-              </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={12}
-                color={secondaryColor}
-              />
-            </View>
-            <Reanimated.View
-              sharedTransitionTag={`title-${questionId || answer?.question?.id || id}`}
-              sharedTransitionStyle={slowTransition}
+            <View
+              className="px-5 bg-transparent"
+              onLayout={({ nativeEvent: { layout } }) => {
+                const offset = Math.max(
+                  1,
+                  layout.y + layout.height - navigationHeight,
+                );
+                collapseOffset.value = offset;
+                onHeaderLayout?.(offset);
+                if (focusedRef.current.isFocused)
+                  updateHeaderProgress(scrollY.value);
+              }}
             >
-              <Text
-                style={{
-                  fontSize: 21,
-                  lineHeight: 29,
-                  fontWeight: '700',
-                }}
-              >
-                {answer?.question?.title || initialTitle || '加载中...'}
-              </Text>
-            </Reanimated.View>
-          </BouncyButton>
-          <View className="flex-row items-center pt-4 pb-5 justify-between gap-3 bg-transparent">
-            <BouncyButton
-              onPress={goToProfile}
-              className="flex-row items-center flex-1 bg-transparent"
-            >
-              <StableAvatar
-                uri={authorAvatarUrl}
-                className="w-9 h-9 rounded-full"
-              />
-              <View className="ml-2.5 flex-1 bg-transparent">
-                <Text
-                  style={{
-                    fontSize: 15,
-                    lineHeight: 22,
-                    fontWeight: '600',
-                  }}
-                  numberOfLines={1}
-                >
-                  {answer?.author?.name || '知乎用户'}
-                </Text>
-                {answer?.author?.headline ? (
-                  <Text
-                    type="secondary"
-                    style={{ fontSize: 12, lineHeight: 18 }}
-                    numberOfLines={1}
-                  >
-                    {answer.author.headline}
-                  </Text>
-                ) : null}
-              </View>
-            </BouncyButton>
-            <FollowButton
-              following={Boolean(answer?.author?.is_following)}
-              loading={followMutation.isPending}
-              disabled={!answer}
-              onPress={() => followMutation.mutate()}
-            />
-          </View>
-        </View>
-
-        {isAnswerLoading && !answer ? (
-          <AnswerLoadingPlaceholder phase="fetching-answer" />
-        ) : isError && !answer && getZhihuErrorStatus(error) !== 404 ? (
-          <QueryErrorView
-            message="回答加载失败"
-            onRetry={() => void refetch()}
-          />
-        ) : getZhihuErrorStatus(error) === 404 && !answer ? (
-          <View className="h-[300px] justify-center items-center px-6 bg-transparent">
-            <Ionicons name="compass-outline" size={48} color={secondaryColor} />
-            <Text className="text-base font-bold mt-4 mb-2 text-foreground dark:text-foreground-dark">
-              你似乎来到了没有知识存在的荒原
-            </Text>
-            <Text type="secondary" className="text-xs text-center mb-6">
-              该回答可能已被删除、失效或暂不可见 喵~
-            </Text>
-            <BouncyButton
-              onPress={() => router.back()}
-              className="px-4 py-2 rounded-full"
-              style={{ backgroundColor: primaryTransparent }}
-            >
-              <Text className="text-xs font-bold" style={{ color: linkColor }}>
-                返回上一页
-              </Text>
-            </BouncyButton>
-          </View>
-        ) : (
-          <GestureDetector gesture={doubleTapVote}>
-            <RawView collapsable={false} className="px-5 pb-2 bg-transparent">
-              <AnswerEndorsements
-                endorsements={endorsements}
-                enabled={isFocused}
-              />
-              <ContentRelationshipNotice
-                contentType="answer"
-                contentId={id}
-                enabled={isFocused && Boolean(answer)}
-                voteCount={answer?.voteup_count}
-              />
-              <ZhihuContent
-                content={answer?.content || ''}
-                segmentInfos={answer?.segment_infos}
-                linkCardInfo={answer?.link_card_info}
-                objectId={id}
-                type="answer"
-                onRefresh={refetch}
-                renderPlaceholder={renderContentPlaceholder}
-                onLayoutReady={handleContentLayoutReady}
-              />
-              {/* Meta info */}
-              <View
-                style={{
-                  marginTop: 20,
-                  paddingTop: 12,
+              <BouncyButton
+                accessibilityRole="button"
+                accessibilityLabel="查看问题"
+                onPress={() => {
+                  const target = answer?.question?.id || questionId;
+                  if (target) router.push(`/question/${target}`);
                 }}
                 className="bg-transparent"
               >
-                <Text
-                  style={{
-                    fontSize: 12,
-                    color: Colors[colorScheme].textSecondary,
-                    opacity: 0.65,
-                  }}
+                <View className="flex-row items-center gap-1 mb-2 bg-transparent">
+                  <Text
+                    type="secondary"
+                    style={{ fontSize: 12, lineHeight: 18 }}
+                  >
+                    来自问题
+                  </Text>
+                  <Ionicons
+                    name="chevron-forward"
+                    size={12}
+                    color={secondaryColor}
+                  />
+                </View>
+                <Reanimated.View
+                  sharedTransitionTag={`title-${questionId || answer?.question?.id || id}`}
+                  sharedTransitionStyle={slowTransition}
                 >
-                  {[
-                    answer?.created_time
-                      ? `发布于 ${formatDate(answer.created_time)}`
-                      : answer?.created_time_name
-                        ? `发布于 ${answer.created_time_name}`
-                        : null,
-                    answer?.updated_time
-                      ? `编辑于 ${formatDate(answer.updated_time)}`
-                      : null,
-                    answer?.ip_info ? answer.ip_info : null,
-                  ]
-                    .filter(Boolean)
-                    .join('  ·  ')}
-                </Text>
+                  <Text
+                    style={{
+                      fontSize: 21,
+                      lineHeight: 29,
+                      fontWeight: '700',
+                    }}
+                  >
+                    {answer?.question?.title || initialTitle || '加载中...'}
+                  </Text>
+                </Reanimated.View>
+              </BouncyButton>
+              <View className="flex-row items-center pt-4 pb-5 justify-between gap-3 bg-transparent">
+                <BouncyButton
+                  onPress={goToProfile}
+                  className="flex-row items-center flex-1 bg-transparent"
+                >
+                  <StableAvatar
+                    uri={authorAvatarUrl}
+                    className="w-9 h-9 rounded-full"
+                  />
+                  <View className="ml-2.5 flex-1 bg-transparent">
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 22,
+                        fontWeight: '600',
+                      }}
+                      numberOfLines={1}
+                    >
+                      {answer?.author?.name || '知乎用户'}
+                    </Text>
+                    {answer?.author?.headline ? (
+                      <Text
+                        type="secondary"
+                        style={{ fontSize: 12, lineHeight: 18 }}
+                        numberOfLines={1}
+                      >
+                        {answer.author.headline}
+                      </Text>
+                    ) : null}
+                  </View>
+                </BouncyButton>
+                <FollowButton
+                  following={Boolean(answer?.author?.is_following)}
+                  loading={followMutation.isPending}
+                  disabled={!answer}
+                  onPress={() => followMutation.mutate()}
+                />
               </View>
-            </RawView>
-          </GestureDetector>
-        )}
-      </Reanimated.ScrollView>
+            </View>
+
+            {isAnswerLoading && !answer ? (
+              <AnswerLoadingPlaceholder phase="fetching-answer" />
+            ) : isError && !answer && getZhihuErrorStatus(error) !== 404 ? (
+              <QueryErrorView
+                message="回答加载失败"
+                onRetry={() => void refetch()}
+              />
+            ) : getZhihuErrorStatus(error) === 404 && !answer ? (
+              <View className="h-[300px] justify-center items-center px-6 bg-transparent">
+                <Ionicons
+                  name="compass-outline"
+                  size={48}
+                  color={secondaryColor}
+                />
+                <Text className="text-base font-bold mt-4 mb-2 text-foreground dark:text-foreground-dark">
+                  你似乎来到了没有知识存在的荒原
+                </Text>
+                <Text type="secondary" className="text-xs text-center mb-6">
+                  该回答可能已被删除、失效或暂不可见 喵~
+                </Text>
+                <BouncyButton
+                  onPress={() => router.back()}
+                  className="px-4 py-2 rounded-full"
+                  style={{ backgroundColor: primaryTransparent }}
+                >
+                  <Text
+                    className="text-xs font-bold"
+                    style={{ color: linkColor }}
+                  >
+                    返回上一页
+                  </Text>
+                </BouncyButton>
+              </View>
+            ) : (
+              <View className="px-5 pb-2 bg-transparent">
+                <AnswerEndorsements
+                  endorsements={endorsements}
+                  enabled={isFocused}
+                />
+                <ContentRelationshipNotice
+                  contentType="answer"
+                  contentId={id}
+                  enabled={isFocused && Boolean(answer)}
+                  voteCount={answer?.voteup_count}
+                />
+                <ZhihuContent
+                  content={answer?.content || ''}
+                  segmentInfos={answer?.segment_infos}
+                  linkCardInfo={answer?.link_card_info}
+                  objectId={id}
+                  type="answer"
+                  onRefresh={refetch}
+                  renderPlaceholder={renderContentPlaceholder}
+                  onLayoutReady={handleContentLayoutReady}
+                />
+                {/* Meta info */}
+                <View
+                  style={{
+                    marginTop: 20,
+                    paddingTop: 12,
+                  }}
+                  className="bg-transparent"
+                >
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: Colors[colorScheme].textSecondary,
+                      opacity: 0.65,
+                    }}
+                  >
+                    {[
+                      answer?.created_time
+                        ? `发布于 ${formatDate(answer.created_time)}`
+                        : answer?.created_time_name
+                          ? `发布于 ${answer.created_time_name}`
+                          : null,
+                      answer?.updated_time
+                        ? `编辑于 ${formatDate(answer.updated_time)}`
+                        : null,
+                      answer?.ip_info ? answer.ip_info : null,
+                    ]
+                      .filter(Boolean)
+                      .join('  ·  ')}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Reanimated.ScrollView>
+        </RawView>
+      </GestureDetector>
 
       <ReadingScrollIndicator
         scrollY={scrollY}

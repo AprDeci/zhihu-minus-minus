@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
-import { useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Gesture } from 'react-native-gesture-handler';
 import { getVoteSuccessMessage, voteContent } from '@/api/zhihu';
 import { useDoubleTapSetupStore } from '@/store/useDoubleTapSetupStore';
@@ -49,10 +49,15 @@ export function useDoubleTapAction({
   const action = useSettingsStore((state) => state.doubleTapAction);
   const showSetup = useDoubleTapSetupStore((state) => state.show);
   const pendingRef = useRef(false);
-  const stateRef = useRef({ id, voted, count });
-  stateRef.current = { id, voted, count };
+  const stateRef = useRef({ id, type, voted, count });
+
+  // Preserve a successful vote across unrelated renders until cache props change.
+  useEffect(() => {
+    stateRef.current = { id, type, voted, count };
+  }, [id, type, voted, count]);
 
   const trigger = useCallback(async () => {
+    if (!enabled) return;
     const current = stateRef.current;
 
     if (action === undefined) {
@@ -76,6 +81,16 @@ export function useDoubleTapAction({
       const voteCount =
         result.voteCount ??
         Math.max(0, current.count + (result.voted === 1 ? 1 : 0));
+      if (
+        stateRef.current.id === current.id &&
+        stateRef.current.type === current.type
+      ) {
+        stateRef.current = {
+          ...current,
+          voted: result.voted,
+          count: voteCount,
+        };
+      }
       updateContentInteractionCaches(queryClient, {
         type,
         id: current.id,
@@ -88,18 +103,18 @@ export function useDoubleTapAction({
     } finally {
       pendingRef.current = false;
     }
-  }, [action, commentType, queryClient, router, showSetup, type]);
+  }, [action, commentType, enabled, queryClient, router, showSetup, type]);
 
   const gesture = useMemo(
     () =>
       Gesture.Tap()
         .numberOfTaps(2)
         .runOnJS(true)
-        .enabled(enabled)
+        .enabled(enabled && action !== 'off')
         .onEnd((_event, success) => {
           if (success) void trigger();
         }),
-    [enabled, trigger],
+    [action, enabled, trigger],
   );
 
   return { gesture };

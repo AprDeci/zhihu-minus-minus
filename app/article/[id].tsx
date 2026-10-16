@@ -366,167 +366,168 @@ export default function ArticleDetail() {
         />
       </View>
 
-      <Animated.ScrollView
-        ref={scrollViewRef}
-        className="flex-1"
-        style={{
-          backgroundColor: Colors[colorScheme].backgroundSecondary,
-        }}
-        scrollEventThrottle={16}
-        onScroll={Animated.event(
-          [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-          {
-            useNativeDriver: true,
-            listener: (event: NativeSyntheticEvent<NativeScrollEvent>) =>
-              readingProgress.onScroll(event.nativeEvent.contentOffset.y),
-          },
-        )}
-        onLayout={readingProgress.onLayout}
-        onContentSizeChange={readingProgress.onContentSizeChange}
-        onScrollEndDrag={readingProgress.commitProgress}
-        onMomentumScrollEnd={readingProgress.commitProgress}
-        contentContainerStyle={{
-          paddingTop: isDaily ? 0 : insets.top + 60,
-          paddingBottom: isDaily
-            ? 100 + insets.bottom
-            : CONTENT_ACTION_BAR_HEIGHT +
-              56 +
-              actionBarBottom -
-              ARTICLE_ACTION_BAR_OFFSET,
-        }}
-      >
-        {isDaily ? (
-          <View className="w-full h-[300px] relative">
-            <Image
-              source={getCachedImageSource(dailyData?.image)}
-              className="w-full h-full"
-            />
-            <View
-              className="absolute bottom-0 p-5 w-full"
-              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-            >
-              <Text
-                className="text-[22px] font-bold"
-                style={{ color: '#ffffff' }}
-              >
-                {data.title}
-              </Text>
-              {dailyData?.image_source && (
-                <Text
-                  className="text-right mt-2 text-[10px]"
-                  style={{ color: 'rgba(255,255,255,0.7)' }}
-                >
-                  {dailyData?.image_source}
-                </Text>
-              )}
-            </View>
-          </View>
-        ) : (
-          <View className="p-5 pt-[10px]">
-            <Text className="text-2xl font-bold leading-8 mb-5">
-              {data.title}
-            </Text>
-            <View className="flex-row items-center justify-between bg-transparent mt-2">
-              <BouncyButton
-                onPress={goToProfile}
-                className="flex-row items-center flex-1 bg-transparent"
-              >
-                <StableAvatar
-                  uri={authorAvatarUrl}
-                  className="w-11 h-11 rounded-full"
+      <GestureDetector gesture={doubleTapVote}>
+        <RawView collapsable={false} style={{ flex: 1 }}>
+          <Animated.ScrollView
+            ref={scrollViewRef}
+            className="flex-1"
+            style={{
+              backgroundColor: Colors[colorScheme].backgroundSecondary,
+            }}
+            scrollEventThrottle={16}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              {
+                useNativeDriver: true,
+                listener: (event: NativeSyntheticEvent<NativeScrollEvent>) =>
+                  readingProgress.onScroll(event.nativeEvent.contentOffset.y),
+              },
+            )}
+            onLayout={readingProgress.onLayout}
+            onContentSizeChange={readingProgress.onContentSizeChange}
+            onScrollEndDrag={readingProgress.commitProgress}
+            onMomentumScrollEnd={readingProgress.commitProgress}
+            contentContainerStyle={{
+              paddingTop: isDaily ? 0 : insets.top + 60,
+              paddingBottom: isDaily
+                ? 100 + insets.bottom
+                : CONTENT_ACTION_BAR_HEIGHT +
+                  56 +
+                  actionBarBottom -
+                  ARTICLE_ACTION_BAR_OFFSET,
+            }}
+          >
+            {isDaily ? (
+              <View className="w-full h-[300px] relative">
+                <Image
+                  source={getCachedImageSource(dailyData?.image)}
+                  className="w-full h-full"
                 />
-                <View className="ml-3 flex-1 bg-transparent">
-                  <Text className="text-base font-bold">{author?.name}</Text>
-                  {author?.headline ? (
+                <View
+                  className="absolute bottom-0 p-5 w-full"
+                  style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                >
+                  <Text
+                    className="text-[22px] font-bold"
+                    style={{ color: '#ffffff' }}
+                  >
+                    {data.title}
+                  </Text>
+                  {dailyData?.image_source && (
+                    <Text
+                      className="text-right mt-2 text-[10px]"
+                      style={{ color: 'rgba(255,255,255,0.7)' }}
+                    >
+                      {dailyData?.image_source}
+                    </Text>
+                  )}
+                </View>
+              </View>
+            ) : (
+              <View className="p-5 pt-[10px]">
+                <Text className="text-2xl font-bold leading-8 mb-5">
+                  {data.title}
+                </Text>
+                <View className="flex-row items-center justify-between bg-transparent mt-2">
+                  <BouncyButton
+                    onPress={goToProfile}
+                    className="flex-row items-center flex-1 bg-transparent"
+                  >
+                    <StableAvatar
+                      uri={authorAvatarUrl}
+                      className="w-11 h-11 rounded-full"
+                    />
+                    <View className="ml-3 flex-1 bg-transparent">
+                      <Text className="text-base font-bold">
+                        {author?.name}
+                      </Text>
+                      {author?.headline ? (
+                        <Text
+                          type="secondary"
+                          className="text-[13px] text-tertiary dark:text-tertiary-dark mt-0.5"
+                          numberOfLines={1}
+                        >
+                          {author.headline}
+                        </Text>
+                      ) : null}
+                    </View>
+                  </BouncyButton>
+                  <FollowButton
+                    following={Boolean(author?.is_following)}
+                    loading={followMutation.isPending}
+                    onPress={() => followMutation.mutate()}
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Content Render */}
+            <View className="px-[15px] bg-transparent mt-3">
+              {!isDaily && (
+                <AnswerEndorsements endorsements={zhihuData?.endorsements} />
+              )}
+              <ZhihuContent
+                content={isDaily ? dailyData?.body : zhihuData?.content}
+                objectId={id as string}
+                type="article"
+                variant={isDaily ? 'daily' : 'default'}
+              />
+            </View>
+
+            {/* Column Card section */}
+            {!isDaily && columnCard && (
+              <View className="px-5 mt-8 mb-4 bg-transparent">
+                <Text className="text-sm font-bold mb-3">收录于专栏</Text>
+                <BouncyButton
+                  onPress={() => router.push(`/column/${columnCard.id}`)}
+                  className="flex-row items-center p-4 rounded-xl border"
+                  style={{
+                    borderColor: Colors[colorScheme].border,
+                    backgroundColor: Colors[colorScheme].surface,
+                  }}
+                >
+                  <Image
+                    source={getCachedImageSource(columnCard.image_url)}
+                    className="w-12 h-12 rounded-lg"
+                  />
+                  <View className="flex-1 ml-3 bg-transparent">
+                    <Text className="text-base font-bold" numberOfLines={1}>
+                      {columnCard.title}
+                    </Text>
                     <Text
                       type="secondary"
-                      className="text-[13px] text-tertiary dark:text-tertiary-dark mt-0.5"
+                      className="text-xs mt-1"
                       numberOfLines={1}
                     >
-                      {author.headline}
+                      {columnCard.extra || `${columnCard.intro || '知乎专栏'}`}
                     </Text>
-                  ) : null}
-                </View>
-              </BouncyButton>
-              <FollowButton
-                following={Boolean(author?.is_following)}
-                loading={followMutation.isPending}
-                onPress={() => followMutation.mutate()}
-              />
-            </View>
-          </View>
-        )}
-
-        {/* Content Render */}
-        <GestureDetector gesture={doubleTapVote}>
-          <RawView
-            collapsable={false}
-            className="px-[15px] bg-transparent mt-3"
-          >
-            {!isDaily && (
-              <AnswerEndorsements endorsements={zhihuData?.endorsements} />
+                  </View>
+                  <FollowButton
+                    following={Boolean(columnCard.is_following)}
+                    loading={columnFollowMutation.isPending}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      columnFollowMutation.mutate();
+                    }}
+                  />
+                </BouncyButton>
+              </View>
             )}
-            <ZhihuContent
-              content={isDaily ? dailyData?.body : zhihuData?.content}
-              objectId={id as string}
-              type="article"
-              variant={isDaily ? 'daily' : 'default'}
-            />
-          </RawView>
-        </GestureDetector>
 
-        {/* Column Card section */}
-        {!isDaily && columnCard && (
-          <View className="px-5 mt-8 mb-4 bg-transparent">
-            <Text className="text-sm font-bold mb-3">收录于专栏</Text>
-            <BouncyButton
-              onPress={() => router.push(`/column/${columnCard.id}`)}
-              className="flex-row items-center p-4 rounded-xl border"
-              style={{
-                borderColor: Colors[colorScheme].border,
-                backgroundColor: Colors[colorScheme].surface,
-              }}
-            >
-              <Image
-                source={getCachedImageSource(columnCard.image_url)}
-                className="w-12 h-12 rounded-lg"
-              />
-              <View className="flex-1 ml-3 bg-transparent">
-                <Text className="text-base font-bold" numberOfLines={1}>
-                  {columnCard.title}
-                </Text>
+            {/* Publish time and copyright notice for standard articles */}
+            {!isDaily && zhihuData?.created && (
+              <View className="px-5">
                 <Text
                   type="secondary"
-                  className="text-xs mt-1"
-                  numberOfLines={1}
+                  className="text-[#bbb] text-[13px] mt-[30px] italic pb-5"
                 >
-                  {columnCard.extra || `${columnCard.intro || '知乎专栏'}`}
+                  发布于 {formatDate(zhihuData.created)}
                 </Text>
               </View>
-              <FollowButton
-                following={Boolean(columnCard.is_following)}
-                loading={columnFollowMutation.isPending}
-                onPress={(event) => {
-                  event.stopPropagation();
-                  columnFollowMutation.mutate();
-                }}
-              />
-            </BouncyButton>
-          </View>
-        )}
-
-        {/* Publish time and copyright notice for standard articles */}
-        {!isDaily && zhihuData?.created && (
-          <View className="px-5">
-            <Text
-              type="secondary"
-              className="text-[#bbb] text-[13px] mt-[30px] italic pb-5"
-            >
-              发布于 {formatDate(zhihuData.created)}
-            </Text>
-          </View>
-        )}
-      </Animated.ScrollView>
+            )}
+          </Animated.ScrollView>
+        </RawView>
+      </GestureDetector>
 
       <ReadingProgressNotice
         visible={readingProgress.restoredOffset !== null}

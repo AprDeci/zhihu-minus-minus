@@ -91,6 +91,9 @@ export default function FeatureSettings() {
                   key={option.key}
                   accessibilityRole="button"
                   accessibilityLabel={`双击正文：${option.label}`}
+                  accessibilityState={{
+                    selected: doubleTapAction === option.key,
+                  }}
                   onPress={() =>
                     updateSettings({ doubleTapAction: option.key })
                   }

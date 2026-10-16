@@ -205,83 +205,89 @@ export default function PinDetailScreen() {
         }
       />
 
-      <ScrollView
-        ref={scrollViewRef}
-        className="flex-1"
-        scrollEventThrottle={16}
-        onScroll={(event) =>
-          readingProgress.onScroll(event.nativeEvent.contentOffset.y)
-        }
-        onLayout={readingProgress.onLayout}
-        onContentSizeChange={readingProgress.onContentSizeChange}
-        onScrollEndDrag={readingProgress.commitProgress}
-        onMomentumScrollEnd={readingProgress.commitProgress}
-        contentContainerStyle={{
-          paddingBottom: CONTENT_ACTION_BAR_HEIGHT + 36 + actionBarBottom,
-        }}
-      >
-        {/* 作者信息栏 */}
-        <View className="flex-row items-center p-5 justify-between bg-transparent">
-          <BouncyButton
-            onPress={goToProfile}
-            className="flex-row items-center flex-1 bg-transparent"
+      <GestureDetector gesture={doubleTapVote}>
+        <RawView collapsable={false} style={{ flex: 1 }}>
+          <ScrollView
+            ref={scrollViewRef}
+            className="flex-1"
+            scrollEventThrottle={16}
+            onScroll={(event) =>
+              readingProgress.onScroll(event.nativeEvent.contentOffset.y)
+            }
+            onLayout={readingProgress.onLayout}
+            onContentSizeChange={readingProgress.onContentSizeChange}
+            onScrollEndDrag={readingProgress.commitProgress}
+            onMomentumScrollEnd={readingProgress.commitProgress}
+            contentContainerStyle={{
+              paddingBottom: CONTENT_ACTION_BAR_HEIGHT + 36 + actionBarBottom,
+            }}
           >
-            <StableAvatar
-              uri={pin?.author?.avatar_url}
-              className="w-11 h-11 rounded-full"
-            />
-            <View className="ml-3 flex-1 bg-transparent">
-              <Text className="text-base font-bold">{pin?.author?.name}</Text>
-              {pin?.author?.headline ? (
-                <Text
-                  type="secondary"
-                  className="text-[13px] mt-0.5"
-                  numberOfLines={1}
-                >
-                  {pin.author.headline}
-                </Text>
-              ) : null}
+            {/* 作者信息栏 */}
+            <View className="flex-row items-center p-5 justify-between bg-transparent">
+              <BouncyButton
+                onPress={goToProfile}
+                className="flex-row items-center flex-1 bg-transparent"
+              >
+                <StableAvatar
+                  uri={pin?.author?.avatar_url}
+                  className="w-11 h-11 rounded-full"
+                />
+                <View className="ml-3 flex-1 bg-transparent">
+                  <Text className="text-base font-bold">
+                    {pin?.author?.name}
+                  </Text>
+                  {pin?.author?.headline ? (
+                    <Text
+                      type="secondary"
+                      className="text-[13px] mt-0.5"
+                      numberOfLines={1}
+                    >
+                      {pin.author.headline}
+                    </Text>
+                  ) : null}
+                </View>
+              </BouncyButton>
+              <FollowButton
+                following={Boolean(pin?.author?.is_following)}
+                loading={followMutation.isPending}
+                onPress={() => followMutation.mutate()}
+              />
             </View>
-          </BouncyButton>
-          <FollowButton
-            following={Boolean(pin?.author?.is_following)}
-            loading={followMutation.isPending}
-            onPress={() => followMutation.mutate()}
-          />
-        </View>
 
-        {/* 想法内容 */}
-        <GestureDetector gesture={doubleTapVote}>
-          <RawView collapsable={false} className="px-5 bg-transparent">
-            <ContentRelationshipNotice
-              contentType="pin"
-              contentId={String(id)}
-              voteCount={pinVoteCount}
-            />
-            <ZhihuContent
-              contentArray={pin?.content}
-              objectId={id as string}
-              type="pin"
-              onRefresh={refetch}
-            />
-          </RawView>
-        </GestureDetector>
-        {poll ? (
-          <RawView className="px-5 bg-transparent">
-            <PinPollCard
-              key={`${id}:${poll.id}`}
-              poll={poll}
-              contentId={String(id)}
-            />
-          </RawView>
-        ) : null}
-        <Text
-          type="secondary"
-          className="text-[#bbb] text-[13px] mt-[30px] italic pb-5 px-5"
-        >
-          发布于 {pin?.created ? formatDateTime(pin.created) : '不久前'}{' '}
-        </Text>
-      </ScrollView>
+            {/* 想法内容 */}
+            <View className="px-5 bg-transparent">
+              <ContentRelationshipNotice
+                contentType="pin"
+                contentId={String(id)}
+                voteCount={pinVoteCount}
+              />
+              <ZhihuContent
+                contentArray={pin?.content}
+                objectId={id as string}
+                type="pin"
+                onRefresh={refetch}
+              />
+            </View>
+            {poll ? (
+              <RawView className="px-5 bg-transparent">
+                <PinPollCard
+                  key={`${id}:${poll.id}`}
+                  poll={poll}
+                  contentId={String(id)}
+                />
+              </RawView>
+            ) : null}
+            <Text
+              type="secondary"
+              className="text-[#bbb] text-[13px] mt-[30px] italic pb-5 px-5"
+            >
+              发布于 {pin?.created
+                ? formatDateTime(pin.created)
+                : '不久前'}{' '}
+            </Text>
+          </ScrollView>
+        </RawView>
+      </GestureDetector>
 
       <ReadingProgressNotice
         visible={readingProgress.restoredOffset !== null}

@@ -214,6 +214,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   borderRadius: 12,
   richContentRenderer: 'native-v2',
   answerReadingMode: 'detail',
+  doubleTapAction: undefined,
   enablePrivateMessaging: false,
   enablePressFeedback: true,
   pressOpacity: 0.82,
@@ -488,7 +489,7 @@ export const useSettingsStore = create<SettingsState>()(
           persistedState.filterRegexPatterns,
         );
 
-        // v18 adds the double-tap action; unset or invalid keeps it undefined so
+        // v18 leaves missing or invalid double-tap actions unset for first-use setup.
         persistedState.doubleTapAction = isValidDoubleTapAction(
           persistedState.doubleTapAction,
         )
