@@ -18,19 +18,20 @@ jest.mock('../utils/contentCache', () => ({
   seedAnswerDetailFromList: jest.fn(),
 }));
 
-interface DoubleTapVoteOptions {
+interface DoubleTapActionOptions {
   id: string;
   type: string;
+  commentType: string;
   voted: number;
   count: number;
   enabled: boolean;
 }
 
-const mockDoubleTapVote = jest.fn((_options: DoubleTapVoteOptions) => ({
+const mockDoubleTapVote = jest.fn((_options: DoubleTapActionOptions) => ({
   gesture: { synthetic: true },
 }));
-jest.mock('../hooks/useDoubleTapVote', () => ({
-  useDoubleTapVote: (options: DoubleTapVoteOptions) =>
+jest.mock('../hooks/useDoubleTapAction', () => ({
+  useDoubleTapAction: (options: DoubleTapActionOptions) =>
     mockDoubleTapVote(options),
 }));
 
@@ -822,13 +823,27 @@ test.each([
     name: 'article',
     Screen: ArticleDetail,
     source: undefined,
-    expected: { id: '7', type: 'articles', voted: 0, count: 0, enabled: true },
+    expected: {
+      id: '7',
+      type: 'articles',
+      commentType: 'article',
+      voted: 0,
+      count: 0,
+      enabled: true,
+    },
   },
   {
     name: 'pin',
     Screen: PinDetailScreen,
     source: undefined,
-    expected: { id: '7', type: 'pins', voted: 0, count: 0, enabled: true },
+    expected: {
+      id: '7',
+      type: 'pins',
+      commentType: 'pin',
+      voted: 0,
+      count: 0,
+      enabled: true,
+    },
   },
 ])('the $name detail page wires double-tap voting to its own content and vote state', async ({
   Screen,
