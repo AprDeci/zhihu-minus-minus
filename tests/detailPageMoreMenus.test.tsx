@@ -18,6 +18,22 @@ jest.mock('../utils/contentCache', () => ({
   seedAnswerDetailFromList: jest.fn(),
 }));
 
+interface DoubleTapVoteOptions {
+  id: string;
+  type: string;
+  voted: number;
+  count: number;
+  enabled: boolean;
+}
+
+const mockDoubleTapVote = jest.fn((_options: DoubleTapVoteOptions) => ({
+  gesture: { synthetic: true },
+}));
+jest.mock('../hooks/useDoubleTapVote', () => ({
+  useDoubleTapVote: (options: DoubleTapVoteOptions) =>
+    mockDoubleTapVote(options),
+}));
+
 interface MenuProps {
   visible: boolean;
   onClose: () => void;
@@ -148,6 +164,8 @@ jest.mock('react-native-gesture-handler', () => {
     jest.requireActual<typeof import('react-native')>('react-native');
   const gesture = {
     enabled: () => gesture,
+    numberOfTaps: () => gesture,
+    runOnJS: () => gesture,
     activeOffsetX: () => gesture,
     failOffsetY: () => gesture,
     simultaneousWithExternalGesture: () => gesture,
@@ -157,7 +175,7 @@ jest.mock('react-native-gesture-handler', () => {
     onFinalize: () => gesture,
   };
   return {
-    Gesture: { Pan: () => gesture },
+    Gesture: { Pan: () => gesture, Tap: () => gesture },
     GestureDetector: native.View,
     RefreshControl: native.RefreshControl,
   };
@@ -797,4 +815,39 @@ test('deletion refreshes every sort of its original question even if the display
     queryKey: ['question-answers', '7'],
   });
   alert.mockRestore();
+});
+
+test.each([
+  {
+    name: 'article',
+    Screen: ArticleDetail,
+    source: undefined,
+    expected: { id: '7', type: 'articles', voted: 0, count: 0, enabled: true },
+  },
+  {
+    name: 'pin',
+    Screen: PinDetailScreen,
+    source: undefined,
+    expected: { id: '7', type: 'pins', voted: 0, count: 0, enabled: true },
+  },
+])('the $name detail page wires double-tap voting to its own content and vote state', async ({
+  Screen,
+  source,
+  expected,
+}) => {
+  mockParams = { id: '7', ...(source ? { source } : {}) };
+  mockDoubleTapVote.mockClear();
+  await render(<Screen />);
+
+  expect(mockDoubleTapVote).toHaveBeenCalledWith(expected);
+});
+
+test('a daily story never wires double-tap voting to article endpoints', async () => {
+  mockParams = { id: '7', source: 'daily' };
+  mockDoubleTapVote.mockClear();
+  await render(<ArticleDetail />);
+
+  expect(mockDoubleTapVote).toHaveBeenCalledWith(
+    expect.objectContaining({ enabled: false }),
+  );
 });

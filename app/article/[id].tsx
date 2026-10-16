@@ -9,9 +9,11 @@ import {
   type NativeScrollEvent,
   type ScrollView as NativeScrollView,
   type NativeSyntheticEvent,
+  View as RawView,
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   getArticle,
@@ -46,6 +48,7 @@ import { Text, ThemedIcon, useThemeColor, View } from '@/components/Themed';
 import { useColorScheme } from '@/components/useColorScheme';
 import Colors from '@/constants/Colors';
 import { RICH_CONTENT_STALE_TIME, ZhihuContent } from '@/features/rich-content';
+import { useDoubleTapVote } from '@/hooks/useDoubleTapVote';
 import { useOptimisticToggle } from '@/hooks/useOptimisticToggle';
 import { useReadingProgress } from '@/hooks/useReadingProgress';
 import { useCollectionStore } from '@/store/useCollectionStore';
@@ -211,6 +214,14 @@ export default function ArticleDetail() {
     queryKey: ['article-column-card', id],
     queryFn: () => getArticleColumnCard(id as string),
     enabled: !!id && !isDaily,
+  });
+
+  const { gesture: doubleTapVote } = useDoubleTapVote({
+    id: String(id ?? ''),
+    type: 'articles',
+    voted: zhihuData?.relationship?.voting ?? 0,
+    count: zhihuData?.voteup_count ?? 0,
+    enabled: Boolean(id) && !isDaily && Boolean(zhihuData),
   });
 
   const primaryTransparent = useThemeColor({}, 'primaryTransparent');
@@ -446,17 +457,22 @@ export default function ArticleDetail() {
         )}
 
         {/* Content Render */}
-        <View className="px-[15px] bg-transparent mt-3">
-          {!isDaily && (
-            <AnswerEndorsements endorsements={zhihuData?.endorsements} />
-          )}
-          <ZhihuContent
-            content={isDaily ? dailyData?.body : zhihuData?.content}
-            objectId={id as string}
-            type="article"
-            variant={isDaily ? 'daily' : 'default'}
-          />
-        </View>
+        <GestureDetector gesture={doubleTapVote}>
+          <RawView
+            collapsable={false}
+            className="px-[15px] bg-transparent mt-3"
+          >
+            {!isDaily && (
+              <AnswerEndorsements endorsements={zhihuData?.endorsements} />
+            )}
+            <ZhihuContent
+              content={isDaily ? dailyData?.body : zhihuData?.content}
+              objectId={id as string}
+              type="article"
+              variant={isDaily ? 'daily' : 'default'}
+            />
+          </RawView>
+        </GestureDetector>
 
         {/* Column Card section */}
         {!isDaily && columnCard && (
